@@ -123,4 +123,5 @@ def test_multiline_comments_are_preserved():
     ],
 )
 def test_update_typing_imports(source_code, expected_code):
+    source_code = enforce_optional(source_code)
     assert update_typing_imports(source_code) == expected_code
