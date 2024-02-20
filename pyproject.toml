@@ -29,7 +29,9 @@ classifiers = [
     "Programming Language :: Python :: 3.11"
 ]
 dependencies = [
-    "libcst==1.1.0"
+    "libcst==1.1.0",
+    "rich==13.7.0",
+    "click==8.1.7",
 ]
 
 [project.optional-dependencies]
@@ -70,7 +72,7 @@ dev = [
     "black==23.10.0",
     "flake8==6.1.0",
     "isort==5.13.2",
-    "autoflake==v2.2.1",
+    "autoflake==v1.4",
     "mypy==v1.8.0",
 ]
 
@@ -107,3 +109,6 @@ testpaths = [
 line-length = 140
 target-version = ['py310']
 skip-string-normalization = true
+
+[tool.isort]
+profile = "black"

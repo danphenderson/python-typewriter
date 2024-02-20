@@ -36,8 +36,14 @@ repos:
     rev: 6.1.0
     hooks:
     -   id: flake8
-        args: [--ignore=E501]
+        args: ["--ignore=E501,W503"]
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.8.0
     hooks:
     -   id: mypy
+-   repo: https://github.com/myint/autoflake
+    rev: v1.4
+    hooks:
+    -   id: autoflake
+        args: [--remove-all-unused-imports]
+        additional_dependencies: [autoflake==1.4]  # Ensure matching version
