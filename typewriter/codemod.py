@@ -11,12 +11,14 @@ from libcst import (
     Param,
     Subscript,
     SubscriptElement,
+    ensure_type,
     parse_expression,
     parse_module,
 )
 from libcst.codemod import CodemodContext as _CodemodContext
 from libcst.codemod import ContextAwareTransformer as _Codemod
-from libcst.helpers import get_full_name_for_node as get_name
+from libcst.matchers import Name as mName
+from libcst.matchers import matches
 from rich import print
 
 
@@ -68,7 +70,7 @@ class EnforceOptionallNoneTypes(Codemod):
 
     def leave_Subscript(self, original_node: Subscript, updated_node: Subscript) -> Subscript:
         # Check if it's a Union type
-        if isinstance(updated_node.value, Name) and get_name(updated_node.value) == "Union":
+        if matches(updated_node.value, mName("Union")):
             union_element = updated_node.slice
 
             # Extract the types in the Union
@@ -82,7 +84,7 @@ class EnforceOptionallNoneTypes(Codemod):
                     # Single type + None becomes Optional[SingleType]
                     new_node = parse_expression(f"Optional[{remaining_types[0]}]")
                 else:
-                    # Multiple types + None becomes Optional[Union[Types...]]
+                    # Multiple types + None becomes Optional[Union[{', '.join(remaining_types)}]]"
                     new_node = parse_expression(f"Optional[Union[{', '.join(remaining_types)}]]")
                 return new_node  # type: ignore
 
@@ -94,11 +96,8 @@ class EnforceOptionallNoneTypes(Codemod):
         """
         types = []
         for element in subscript_slice:
-            if not isinstance(element, SubscriptElement):
-                raise ValueError(f"Unsupported subscript element type: {type(element)}")
-            element_index = element.slice
-            if isinstance(element_index, Index):
-                types.append(self._node_to_string(element_index.value))
+            element_index = ensure_type(element.slice, Index)
+            types.append(self._node_to_string(element_index.value))
         return types
 
     def _node_to_string(self, node: CSTNode) -> str:
@@ -131,7 +130,7 @@ class EnforceNoneTypesOptional(Codemod):
     """
 
     def leave_AnnAssign(self, original_node: AnnAssign, updated_node: AnnAssign) -> AnnAssign:
-        if isinstance(updated_node.value, Name) and updated_node.value.value == "None":
+        if matches(getattr(updated_node, "value"), mName("None")):
             if not self._is_optional_annotation(updated_node.annotation):
                 new_annotation = self._wrap_with_optional(updated_node.annotation)
                 new_node = updated_node.with_changes(annotation=new_annotation)
@@ -139,7 +138,7 @@ class EnforceNoneTypesOptional(Codemod):
         return updated_node
 
     def leave_Param(self, original_node: Param, updated_node: Param) -> Param:
-        if updated_node.default is not None and isinstance(updated_node.default, Name) and updated_node.default.value == "None":
+        if updated_node.default is not None and matches(updated_node.default, mName("None")):
             if updated_node.annotation is not None and not self._is_optional_annotation(updated_node.annotation):
                 new_annotation = self._wrap_with_optional(updated_node.annotation)
                 new_node = updated_node.with_changes(annotation=new_annotation)
@@ -147,13 +146,9 @@ class EnforceNoneTypesOptional(Codemod):
         return updated_node
 
     def _is_optional_annotation(self, annotation: Annotation) -> bool:
-        if (
-            isinstance(annotation.annotation, Subscript)
-            and isinstance(annotation.annotation.value, Name)
-            and annotation.annotation.value.value == "Optional"
-        ):
+        if isinstance(annotation.annotation, Subscript) and matches(annotation.annotation.value, mName("Optional")):
             return True
-        elif isinstance(annotation.annotation, Name) and annotation.annotation.value == "Any":
+        elif isinstance(annotation.annotation, Name) and matches(annotation.annotation, mName("Any")):
             return True
         return False
 
@@ -172,10 +167,7 @@ def enforce_optional_none_types(code: str) -> str:
     module = parse_module(code)  # Parse the entire code as a module
     codemod = EnforceOptionallNoneTypes(context)
     modified_tree = module.visit(codemod)
-
-    # Convert the modified CST back to code string
-    modified_code = modified_tree.code
-    return modified_code
+    return modified_tree.code
 
 
 def enforce_none_types_optional(code: str) -> str:
@@ -186,16 +178,13 @@ def enforce_none_types_optional(code: str) -> str:
     module = parse_module(code)  # Parse the entire code as a module
     codemod = EnforceNoneTypesOptional(context)
     modified_tree = module.visit(codemod)
-
-    # Convert the modified CST back to code string
-    modified_code = modified_tree.code
-    return modified_code
+    return modified_tree.code
 
 
 def enforce_optional(code: str) -> str:
     """
     Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.
     """
-    modified_code = enforce_optional_none_types(code)
-    modified_code = enforce_none_types_optional(modified_code)
-    return modified_code
+    code = enforce_optional_none_types(code)
+    code = enforce_none_types_optional(code)
+    return code
