@@ -19,10 +19,6 @@ from libcst.codemod import ContextAwareTransformer as _Codemod
 from libcst.helpers import get_full_name_for_node as get_name
 from rich import print
 
-# TODO: Add duck typing to the codemod classes, e.g. enforce, print_changes, etc.
-
-# region: base classes
-
 
 class CodemodContext(_CodemodContext):
     def __init__(self):
@@ -58,9 +54,6 @@ class Codemod(_Codemod):
         updated_code = getattr(updated_node, "code", "")
         code_diff = unified_diff(origonal_code.splitlines(), updated_code.splitlines(), lineterm="")
         self.code_modifications.append(code_diff)
-
-
-# end region: base classes
 
 
 class EnforceOptionallNoneTypes(Codemod):
@@ -128,20 +121,6 @@ class EnforceOptionallNoneTypes(Codemod):
             raise ValueError(f"Unsupported node type: {type(node)}")
 
 
-def enforce_optional_none_types(code: str) -> str:
-    """
-    Apply the EncforceOptionallNoneTypes codemod to the provided code.
-    """
-    context = CodemodContext()
-    module = parse_module(code)  # Parse the entire code as a module
-    codemod = EnforceOptionallNoneTypes(context)
-    modified_tree = module.visit(codemod)
-
-    # Convert the modified CST back to code string
-    modified_code = modified_tree.code
-    return modified_code
-
-
 class EnforceNoneTypesOptional(Codemod):
     """
     Enforce the use of 'Optional' in annotated assignments to None.
@@ -185,6 +164,20 @@ class EnforceNoneTypesOptional(Codemod):
         return optional_annotation
 
 
+def enforce_optional_none_types(code: str) -> str:
+    """
+    Apply the EncforceOptionallNoneTypes codemod to the provided code.
+    """
+    context = CodemodContext()
+    module = parse_module(code)  # Parse the entire code as a module
+    codemod = EnforceOptionallNoneTypes(context)
+    modified_tree = module.visit(codemod)
+
+    # Convert the modified CST back to code string
+    modified_code = modified_tree.code
+    return modified_code
+
+
 def enforce_none_types_optional(code: str) -> str:
     """
     Apply the EnforceNoneTypesOptional codemod to the provided code.
@@ -196,4 +189,13 @@ def enforce_none_types_optional(code: str) -> str:
 
     # Convert the modified CST back to code string
     modified_code = modified_tree.code
+    return modified_code
+
+
+def enforce_optional(code: str) -> str:
+    """
+    Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.
+    """
+    modified_code = enforce_optional_none_types(code)
+    modified_code = enforce_none_types_optional(modified_code)
     return modified_code

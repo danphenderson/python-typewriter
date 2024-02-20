@@ -1,6 +1,10 @@
 import pytest
 
-from typewriter.codemod import enforce_none_types_optional, enforce_optional_none_types
+from typewriter.codemod import (
+    enforce_none_types_optional,
+    enforce_optional,
+    enforce_optional_none_types,
+)
 
 
 # Test cases for the UnionToOptionalTransformer
@@ -68,7 +72,29 @@ def test_enforce_optional_transform(source_code, expected_code):
         ("def func(var: Union[int, None] = None): pass", "def func(var: Optional[int] = None): pass"),
     ],
 )
-def test_union_to_optional_transforms(source_code, expected_code):
-    transformed_code = enforce_optional_none_types(source_code)
-    transformed_code = enforce_none_types_optional(transformed_code)
-    assert transformed_code == expected_code
+def test_enforce_optional(source_code, expected_code):
+    assert enforce_optional(source_code) == expected_code
+
+
+def test_inline_comments_are_presserved():
+    source_code = "var: Union[int, None] = None  # comment"
+    expected_code = "var: Optional[int] = None  # comment"
+    assert enforce_optional(source_code) == expected_code
+
+
+def test_docstrings_are_preserved():
+    source_code = '"""docstring"""\nvar: Union[int, None] = None'
+    expected_code = '"""docstring"""\nvar: Optional[int] = None'
+    assert enforce_optional(source_code) == expected_code
+
+
+def test_multiline_docstrings_are_preserved():
+    source_code = '"""docstring\nmultiline"""\nvar: Union[int, None] = None'
+    expected_code = '"""docstring\nmultiline"""\nvar: Optional[int] = None'
+    assert enforce_optional(source_code) == expected_code
+
+
+def test_multiline_comments_are_preserved():
+    source_code = '"""docstring"""\nvar: Union[int, None] = None\n# comment\n# comment'
+    expected_code = '"""docstring"""\nvar: Optional[int] = None\n# comment\n# comment'
+    assert enforce_optional(source_code) == expected_code
