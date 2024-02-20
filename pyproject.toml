@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"typewriter" = ""}
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[project]
+name = "typewriter"
+version = "0.1.0"
+requires-python = ">=3.8"
+description = "A CLI tool for generating type annotations."
+authors = [
+    {name = "Daniel Henderson", email = "me@danhenderson.dev"},
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: Unix",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+dependencies = [
+    "libcst==1.1.0"
+]
+
+[project.optional-dependencies]
+tests = [
+    "coverage[toml]",
+    "pytest",
+    "pytest-cov"
+]
+
+docs = [
+    "sphinx",
+    "sphinx-py3doc-enhanced-theme",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-asyncio",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-trio",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+    "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
+]
+dev = [
+    "pre-commit",
+    "black==23.10.0",
+    "flake8==6.1.0",
+    "isort==5.13.2",
+    "autoflake==v2.2.1",
+    "mypy==v1.8.0",
+]
+
+[tool.coverage.paths]
+source = ["typewriter"]
+
+
+[tool.coverage.run]
+branch = ["true"]
+source =[
+    "typewriter"
+]
+parallel = ["false"]
+
+
+[tool.coverage.report]
+show_missing = ["true"]
+precision = 2
+
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra --strict-markers --ignore=.eggs --doctest-modules --tb=long"
+norecursedirs = [
+    ".git",
+    "dist",
+    "build",
+]
+testpaths = [
+    "tests"
+]
+
+[tool.black]
+line-length = 140
+target-version = ['py310']
+skip-string-normalization = true
