@@ -22,7 +22,6 @@ from libcst.codemod import CodemodContext as _CodemodContext
 from libcst.codemod import ContextAwareTransformer as _Codemod
 from libcst.matchers import Name as mName
 from libcst.matchers import matches
-from rich import print
 
 
 class CodemodContext(_CodemodContext):
