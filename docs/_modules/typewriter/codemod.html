@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>typewriter.codemod &#8212; typewriter 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d10597a4" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pydoctheme.css?v=8635fa60" />
+
+    <script src="../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+
+    <script src="../../_static/sidebar.js"></script>
+
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <link rel="shortcut icon" type="image/png" href="../../_static/favicon.png" />
+    <meta name="viewport" content="width=device-width,initial-scale=0.8">
+
+
+
+  </head><body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="responsive-menu"><a href="#sidebar-anchor" title="Navigation">&#9776;</a></li>
+        <li><a href="../../index.html">typewriter-0.1.0</a> &#187;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+      </ul>
+    </div>
+
+        <div class="badge">
+            <a href="https://github.com/danphenderson/python-typewriter/">Fork me on GitHub</a>
+            <img src="../../_static/right-red@2x.png">
+        </div>
+
+
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+
+  <h1>Source code for typewriter.codemod</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">difflib</span> <span class="kn">import</span> <span class="n">unified_diff</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span> <span class="nn">libcst</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AnnAssign</span><span class="p">,</span>
+    <span class="n">Annotation</span><span class="p">,</span>
+    <span class="n">Attribute</span><span class="p">,</span>
+    <span class="n">CSTNode</span><span class="p">,</span>
+    <span class="n">Index</span><span class="p">,</span>
+    <span class="n">Name</span><span class="p">,</span>
+    <span class="n">Param</span><span class="p">,</span>
+    <span class="n">Subscript</span><span class="p">,</span>
+    <span class="n">SubscriptElement</span><span class="p">,</span>
+    <span class="n">parse_expression</span><span class="p">,</span>
+    <span class="n">parse_module</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">libcst.codemod</span> <span class="kn">import</span> <span class="n">CodemodContext</span> <span class="k">as</span> <span class="n">_CodemodContext</span>
+<span class="kn">from</span> <span class="nn">libcst.codemod</span> <span class="kn">import</span> <span class="n">ContextAwareTransformer</span> <span class="k">as</span> <span class="n">_Codemod</span>
+<span class="kn">from</span> <span class="nn">libcst.helpers</span> <span class="kn">import</span> <span class="n">get_full_name_for_node</span> <span class="k">as</span> <span class="n">get_name</span>
+<span class="kn">from</span> <span class="nn">rich</span> <span class="kn">import</span> <span class="nb">print</span>
+
+
+<div class="viewcode-block" id="CodemodContext">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.CodemodContext">[docs]</a>
+<span class="k">class</span> <span class="nc">CodemodContext</span><span class="p">(</span><span class="n">_CodemodContext</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code_modifications</span><span class="p">:</span> <span class="n">List</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">made_changes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+
+<div class="viewcode-block" id="Codemod">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.Codemod">[docs]</a>
+<span class="k">class</span> <span class="nc">Codemod</span><span class="p">(</span><span class="n">_Codemod</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    TypeWriter codemods should inherit from this class.</span>
+
+<span class="sd">    This class provides a `report_changes` method to log changes and update&#39;s the</span>
+<span class="sd">    `made_changes` flag if changes are detected.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">CodemodContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">code_modifications</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="s2">&quot;code_modifications&quot;</span><span class="p">,</span> <span class="p">[])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">made_changes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="s2">&quot;made_changes&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Codemod.report_changes">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.Codemod.report_changes">[docs]</a>
+    <span class="k">def</span> <span class="nf">report_changes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original_node</span><span class="p">:</span> <span class="n">CSTNode</span><span class="p">,</span> <span class="n">updated_node</span><span class="p">:</span> <span class="n">CSTNode</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">print_changes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">original_node</span><span class="o">.</span><span class="n">deep_equals</span><span class="p">(</span><span class="n">updated_node</span><span class="p">):</span>
+            <span class="k">return</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Changes detected from </span><span class="si">{</span><span class="n">original_node</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">updated_node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">origonal_code</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">original_node</span><span class="p">,</span> <span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">updated_code</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">updated_node</span><span class="p">,</span> <span class="s2">&quot;code&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">code_diff</span> <span class="o">=</span> <span class="n">unified_diff</span><span class="p">(</span><span class="n">origonal_code</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(),</span> <span class="n">updated_code</span><span class="o">.</span><span class="n">splitlines</span><span class="p">(),</span> <span class="n">lineterm</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code_modifications</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">code_diff</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="EnforceOptionallNoneTypes">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.EnforceOptionallNoneTypes">[docs]</a>
+<span class="k">class</span> <span class="nc">EnforceOptionallNoneTypes</span><span class="p">(</span><span class="n">Codemod</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enforce the use of &#39;Optional&#39; in all &#39;NoneType&#39; annotated assignments.</span>
+
+
+<span class="sd">    The transformation will remove None from the Union and wrap the remaining type(s)</span>
+<span class="sd">    with Optional. If there&#39;s only one other type besides None, it will be Optional[Type].</span>
+<span class="sd">    If there are multiple types besides None, it will be Optional[Union[Type1, Type2, ...]].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="EnforceOptionallNoneTypes.leave_Subscript">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.EnforceOptionallNoneTypes.leave_Subscript">[docs]</a>
+    <span class="k">def</span> <span class="nf">leave_Subscript</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original_node</span><span class="p">:</span> <span class="n">Subscript</span><span class="p">,</span> <span class="n">updated_node</span><span class="p">:</span> <span class="n">Subscript</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Subscript</span><span class="p">:</span>
+        <span class="c1"># Check if it&#39;s a Union type</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">get_name</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;Union&quot;</span><span class="p">:</span>
+            <span class="n">union_element</span> <span class="o">=</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">slice</span>
+
+            <span class="c1"># Extract the types in the Union</span>
+            <span class="n">union_types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_extract_union_types</span><span class="p">(</span><span class="n">union_element</span><span class="p">)</span>
+
+            <span class="c1"># Check if None is one of the types in the Union</span>
+            <span class="k">if</span> <span class="s2">&quot;None&quot;</span> <span class="ow">in</span> <span class="n">union_types</span><span class="p">:</span>
+                <span class="c1"># Remove &#39;None&#39; and handle single or multiple remaining types</span>
+                <span class="n">remaining_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">union_types</span> <span class="k">if</span> <span class="n">t</span> <span class="o">!=</span> <span class="s2">&quot;None&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">remaining_types</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># Single type + None becomes Optional[SingleType]</span>
+                    <span class="n">new_node</span> <span class="o">=</span> <span class="n">parse_expression</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optional[</span><span class="si">{</span><span class="n">remaining_types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Multiple types + None becomes Optional[Union[Types...]]</span>
+                    <span class="n">new_node</span> <span class="o">=</span> <span class="n">parse_expression</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optional[Union[</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">remaining_types</span><span class="p">)</span><span class="si">}</span><span class="s2">]]&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_node</span>  <span class="c1"># type: ignore</span>
+
+        <span class="k">return</span> <span class="n">updated_node</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_extract_union_types</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subscript_slice</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">SubscriptElement</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extract the elements from a subscript slice, handling both simple and subscripted types.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">types</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">subscript_slice</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">SubscriptElement</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported subscript element type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">element</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">element_index</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">slice</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element_index</span><span class="p">,</span> <span class="n">Index</span><span class="p">):</span>
+                <span class="n">types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_to_string</span><span class="p">(</span><span class="n">element_index</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">types</span>
+
+    <span class="k">def</span> <span class="nf">_node_to_string</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">CSTNode</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert a CSTNode to its string representation, handling different node types.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">Name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">Subscript</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_to_string</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="c1"># Handle subscript slices (e.g., List[int])</span>
+            <span class="n">slice_parts</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_node_to_string</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">slice</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">slice</span><span class="p">]</span>  <span class="c1"># type: ignore</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">[</span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">slice_parts</span><span class="p">)</span><span class="si">}</span><span class="s2">]&quot;</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">Attribute</span><span class="p">):</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_to_string</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_node_to_string</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">attr</span><span class="p">)</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">attr</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This might need to be extended to handle other node types as necessary</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported node type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">node</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="EnforceNoneTypesOptional">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.EnforceNoneTypesOptional">[docs]</a>
+<span class="k">class</span> <span class="nc">EnforceNoneTypesOptional</span><span class="p">(</span><span class="n">Codemod</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Enforce the use of &#39;Optional&#39; in annotated assignments to None.</span>
+
+<span class="sd">    This transformer will wrap the type annotation with Optional if the variable is assigned to None</span>
+<span class="sd">    or if a function parameter has a default value of None. Note, if the annotation is already Optional, or Any,</span>
+<span class="sd">    it will remain unchanged.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="EnforceNoneTypesOptional.leave_AnnAssign">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.EnforceNoneTypesOptional.leave_AnnAssign">[docs]</a>
+    <span class="k">def</span> <span class="nf">leave_AnnAssign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original_node</span><span class="p">:</span> <span class="n">AnnAssign</span><span class="p">,</span> <span class="n">updated_node</span><span class="p">:</span> <span class="n">AnnAssign</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AnnAssign</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_optional_annotation</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">annotation</span><span class="p">):</span>
+                <span class="n">new_annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_with_optional</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">annotation</span><span class="p">)</span>
+                <span class="n">new_node</span> <span class="o">=</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">with_changes</span><span class="p">(</span><span class="n">annotation</span><span class="o">=</span><span class="n">new_annotation</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_node</span>
+        <span class="k">return</span> <span class="n">updated_node</span></div>
+
+
+<div class="viewcode-block" id="EnforceNoneTypesOptional.leave_Param">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.EnforceNoneTypesOptional.leave_Param">[docs]</a>
+    <span class="k">def</span> <span class="nf">leave_Param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">original_node</span><span class="p">:</span> <span class="n">Param</span><span class="p">,</span> <span class="n">updated_node</span><span class="p">:</span> <span class="n">Param</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Param</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">default</span><span class="p">,</span> <span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">default</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">annotation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_optional_annotation</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">annotation</span><span class="p">):</span>
+                <span class="n">new_annotation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wrap_with_optional</span><span class="p">(</span><span class="n">updated_node</span><span class="o">.</span><span class="n">annotation</span><span class="p">)</span>
+                <span class="n">new_node</span> <span class="o">=</span> <span class="n">updated_node</span><span class="o">.</span><span class="n">with_changes</span><span class="p">(</span><span class="n">annotation</span><span class="o">=</span><span class="n">new_annotation</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">new_node</span>
+        <span class="k">return</span> <span class="n">updated_node</span></div>
+
+
+    <span class="k">def</span> <span class="nf">_is_optional_annotation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">annotation</span><span class="p">:</span> <span class="n">Annotation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="p">,</span> <span class="n">Subscript</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">Name</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;Optional&quot;</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="p">,</span> <span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;Any&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_wrap_with_optional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">annotation</span><span class="p">:</span> <span class="n">Annotation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Annotation</span><span class="p">:</span>
+        <span class="n">optional_annotation</span> <span class="o">=</span> <span class="n">Annotation</span><span class="p">(</span>
+            <span class="n">annotation</span><span class="o">=</span><span class="n">Subscript</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">Name</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;Optional&quot;</span><span class="p">),</span> <span class="nb">slice</span><span class="o">=</span><span class="p">[</span><span class="n">SubscriptElement</span><span class="p">(</span><span class="nb">slice</span><span class="o">=</span><span class="n">Index</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="n">annotation</span><span class="o">.</span><span class="n">annotation</span><span class="p">))])</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">optional_annotation</span></div>
+
+
+
+<div class="viewcode-block" id="enforce_optional_none_types">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.enforce_optional_none_types">[docs]</a>
+<span class="k">def</span> <span class="nf">enforce_optional_none_types</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply the EncforceOptionallNoneTypes codemod to the provided code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">CodemodContext</span><span class="p">()</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">parse_module</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>  <span class="c1"># Parse the entire code as a module</span>
+    <span class="n">codemod</span> <span class="o">=</span> <span class="n">EnforceOptionallNoneTypes</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">modified_tree</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">codemod</span><span class="p">)</span>
+
+    <span class="c1"># Convert the modified CST back to code string</span>
+    <span class="n">modified_code</span> <span class="o">=</span> <span class="n">modified_tree</span><span class="o">.</span><span class="n">code</span>
+    <span class="k">return</span> <span class="n">modified_code</span></div>
+
+
+
+<div class="viewcode-block" id="enforce_none_types_optional">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.enforce_none_types_optional">[docs]</a>
+<span class="k">def</span> <span class="nf">enforce_none_types_optional</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply the EnforceNoneTypesOptional codemod to the provided code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">CodemodContext</span><span class="p">()</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">parse_module</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>  <span class="c1"># Parse the entire code as a module</span>
+    <span class="n">codemod</span> <span class="o">=</span> <span class="n">EnforceNoneTypesOptional</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">modified_tree</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">codemod</span><span class="p">)</span>
+
+    <span class="c1"># Convert the modified CST back to code string</span>
+    <span class="n">modified_code</span> <span class="o">=</span> <span class="n">modified_tree</span><span class="o">.</span><span class="n">code</span>
+    <span class="k">return</span> <span class="n">modified_code</span></div>
+
+
+
+<div class="viewcode-block" id="enforce_optional">
+<a class="viewcode-back" href="../../index.html#typewriter.codemod.enforce_optional">[docs]</a>
+<span class="k">def</span> <span class="nf">enforce_optional</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">modified_code</span> <span class="o">=</span> <span class="n">enforce_optional_none_types</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+    <span class="n">modified_code</span> <span class="o">=</span> <span class="n">enforce_none_types_optional</span><span class="p">(</span><span class="n">modified_code</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">modified_code</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+    <a id="sidebar-anchor"></a>
+
+
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3><a href="../../index.html">Table Of Contents</a></h3>
+
+        </div>
+<div id="sidebarbutton" title="Collapse sidebar">
+<span>«</span>
+</div>
+
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+      </ul>
+    </div>
+
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Daniel P. Henderson.
+      Last updated on Feb 19, 2024.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.6.
+    </div>
+  </body>
+</html>

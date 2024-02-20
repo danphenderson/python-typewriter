@@ -14,6 +14,12 @@ Modules Documentation
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: typewriter.codemod
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Indices and tables
 ==================
 

@@ -50,6 +50,89 @@
 </div>
 <section id="module-typewriter.cli">
 <span id="modules-documentation"></span><h2>Modules Documentation<a class="headerlink" href="#module-typewriter.cli" title="Link to this heading">¶</a></h2>
+<dl class="py class" id="module-typewriter.codemod">
+<dt class="sig sig-object py" id="typewriter.codemod.Codemod">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">Codemod</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#typewriter.codemod.CodemodContext" title="typewriter.codemod.CodemodContext"><span class="pre">CodemodContext</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/typewriter/codemod.html#Codemod"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.Codemod" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ContextAwareTransformer</span></code></p>
+<p>TypeWriter codemods should inherit from this class.</p>
+<p>This class provides a <cite>report_changes</cite> method to log changes and update’s the
+<cite>made_changes</cite> flag if changes are detected.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="typewriter.codemod.Codemod.code_modifications">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">code_modifications</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span></em><a class="headerlink" href="#typewriter.codemod.Codemod.code_modifications" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="typewriter.codemod.Codemod.made_changes">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">made_changes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#typewriter.codemod.Codemod.made_changes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="typewriter.codemod.Codemod.report_changes">
+<span class="sig-name descname"><span class="pre">report_changes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">original_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">CSTNode</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">CSTNode</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_changes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#Codemod.report_changes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.Codemod.report_changes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="typewriter.codemod.CodemodContext">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">CodemodContext</span></span><a class="reference internal" href="_modules/typewriter/codemod.html#CodemodContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.CodemodContext" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">CodemodContext</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="typewriter.codemod.EnforceNoneTypesOptional">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">EnforceNoneTypesOptional</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#typewriter.codemod.CodemodContext" title="typewriter.codemod.CodemodContext"><span class="pre">CodemodContext</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/typewriter/codemod.html#EnforceNoneTypesOptional"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.EnforceNoneTypesOptional" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#typewriter.codemod.Codemod" title="typewriter.codemod.Codemod"><code class="xref py py-class docutils literal notranslate"><span class="pre">Codemod</span></code></a></p>
+<p>Enforce the use of ‘Optional’ in annotated assignments to None.</p>
+<p>This transformer will wrap the type annotation with Optional if the variable is assigned to None
+or if a function parameter has a default value of None. Note, if the annotation is already Optional, or Any,
+it will remain unchanged.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="typewriter.codemod.EnforceNoneTypesOptional.leave_AnnAssign">
+<span class="sig-name descname"><span class="pre">leave_AnnAssign</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">original_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnAssign</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnAssign</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnAssign</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#EnforceNoneTypesOptional.leave_AnnAssign"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.EnforceNoneTypesOptional.leave_AnnAssign" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="typewriter.codemod.EnforceNoneTypesOptional.leave_Param">
+<span class="sig-name descname"><span class="pre">leave_Param</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">original_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Param</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Param</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Param</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#EnforceNoneTypesOptional.leave_Param"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.EnforceNoneTypesOptional.leave_Param" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="typewriter.codemod.EnforceOptionallNoneTypes">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">EnforceOptionallNoneTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#typewriter.codemod.CodemodContext" title="typewriter.codemod.CodemodContext"><span class="pre">CodemodContext</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/typewriter/codemod.html#EnforceOptionallNoneTypes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.EnforceOptionallNoneTypes" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#typewriter.codemod.Codemod" title="typewriter.codemod.Codemod"><code class="xref py py-class docutils literal notranslate"><span class="pre">Codemod</span></code></a></p>
+<p>Enforce the use of ‘Optional’ in all ‘NoneType’ annotated assignments.</p>
+<p>The transformation will remove None from the Union and wrap the remaining type(s)
+with Optional. If there’s only one other type besides None, it will be Optional[Type].
+If there are multiple types besides None, it will be Optional[Union[Type1, Type2, …]].</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="typewriter.codemod.EnforceOptionallNoneTypes.leave_Subscript">
+<span class="sig-name descname"><span class="pre">leave_Subscript</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">original_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Subscript</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">updated_node</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Subscript</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Subscript</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#EnforceOptionallNoneTypes.leave_Subscript"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.EnforceOptionallNoneTypes.leave_Subscript" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="typewriter.codemod.enforce_none_types_optional">
+<span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">enforce_none_types_optional</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#enforce_none_types_optional"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.enforce_none_types_optional" title="Link to this definition">¶</a></dt>
+<dd><p>Apply the EnforceNoneTypesOptional codemod to the provided code.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="typewriter.codemod.enforce_optional">
+<span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">enforce_optional</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#enforce_optional"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.enforce_optional" title="Link to this definition">¶</a></dt>
+<dd><p>Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="typewriter.codemod.enforce_optional_none_types">
+<span class="sig-prename descclassname"><span class="pre">typewriter.codemod.</span></span><span class="sig-name descname"><span class="pre">enforce_optional_none_types</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">code</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="_modules/typewriter/codemod.html#enforce_optional_none_types"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#typewriter.codemod.enforce_optional_none_types" title="Link to this definition">¶</a></dt>
+<dd><p>Apply the EncforceOptionallNoneTypes codemod to the provided code.</p>
+</dd></dl>
+
 <section id="indices-and-tables">
 <h3>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h3>
 <ul class="simple">
