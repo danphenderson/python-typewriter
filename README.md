@@ -8,17 +8,8 @@
 [![PyPI Wheel](https://img.shields.io/pypi/wheel/typewriter.svg)](https://pypi.org/project/typewriter)
 [![Supported versions](https://img.shields.io/pypi/pyversions/typewriter.svg)](https://pypi.org/project/typewriter)
 [![Supported implementations](https://img.shields.io/pypi/implementation/typewriter.svg)](https://pypi.org/project/typewriter)
-[![Commits since latest release](https://img.shields.io/github/commits-since/danphenderson/python-typewriter/v0.1.0.svg)](https://github.com/danphenderson/python-typewriter/compare/v0.1.0...main)
 
 
-
-    pip install typewriter
-
-# Contributing
-
-
-Contributions are welcome, and they are greatly appreciated! Every
-little bit helps, and credit will always be given.
 
 # Development
 
