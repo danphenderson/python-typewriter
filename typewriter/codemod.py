@@ -6,9 +6,12 @@ from libcst import (
     Annotation,
     Attribute,
     CSTNode,
+    ImportAlias,
+    ImportFrom,
     Index,
     Name,
     Param,
+    SimpleStatementLine,
     Subscript,
     SubscriptElement,
     ensure_type,
@@ -159,6 +162,49 @@ class EnforceNoneTypesOptional(Codemod):
         return optional_annotation
 
 
+class UpdateTypingImports(Codemod):
+    """
+    A transformer that adds 'Optional' to imports if it's used but not imported,
+    and removes 'Union' if it's imported but no longer used.
+    """
+
+    def __init__(self, context: CodemodContext):
+        super().__init__(context)
+        self.context = context
+        self.found_optional = False
+        self.found_union = False
+        self.optional_imported = False
+        self.union_imported = False
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        if node.module.value == "typing":
+            for alias in node.names:
+                if alias.name.value == "Optional":
+                    self.optional_imported = True
+                elif alias.name.value == "Union":
+                    self.union_imported = True
+        return super().visit_ImportFrom(node)
+
+    def leave_Module(self, original_node, updated_node):
+        new_body = list(updated_node.body)
+        if self.found_optional and not self.optional_imported:
+            optional_import = ImportFrom(module=Name(value="typing"), names=[ImportAlias(name=Name(value="Optional"))])
+            # Insert at the start of the body, ensuring it's the first import
+            new_body.insert(0, SimpleStatementLine(body=[optional_import]))
+        if not self.found_union and self.union_imported:
+            # Filter out the 'Union' import if it's no longer needed
+            new_body = [
+                node
+                for node in new_body
+                if not (
+                    isinstance(node, ImportFrom)
+                    and node.module.value == "typing"
+                    and any(alias.name.value == "Union" for alias in node.names)
+                )
+            ]
+        return updated_node.with_changes(body=new_body)
+
+
 def enforce_optional_none_types(code: str) -> str:
     """
     Apply the EncforceOptionallNoneTypes codemod to the provided code.
@@ -177,6 +223,17 @@ def enforce_none_types_optional(code: str) -> str:
     context = CodemodContext()
     module = parse_module(code)  # Parse the entire code as a module
     codemod = EnforceNoneTypesOptional(context)
+    modified_tree = module.visit(codemod)
+    return modified_tree.code
+
+
+def update_typing_imports(code: str) -> str:
+    """
+    Apply the UpdateTypingImports codemod to the provided code.
+    """
+    context = CodemodContext()
+    module = parse_module(code)  # Parse the entire code as a module
+    codemod = UpdateTypingImports(context)
     modified_tree = module.visit(codemod)
     return modified_tree.code
 

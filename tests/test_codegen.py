@@ -4,6 +4,7 @@ from typewriter.codemod import (
     enforce_none_types_optional,
     enforce_optional,
     enforce_optional_none_types,
+    update_typing_imports,
 )
 
 
@@ -98,3 +99,28 @@ def test_multiline_comments_are_preserved():
     source_code = '"""docstring"""\nvar: Union[int, None] = None\n# comment\n# comment'
     expected_code = '"""docstring"""\nvar: Optional[int] = None\n# comment\n# comment'
     assert enforce_optional(source_code) == expected_code
+
+
+# TODO: Test UpdateTypingImports
+
+
+@pytest.mark.parametrize(
+    "source_code, expected_code",
+    [
+        # Ensure 'Optional' is added when needed
+        ("from typing import Union\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
+        # Ensure 'Union' is removed when no longer needed
+        ("from typing import Union, Optional\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
+        # Ensure 'Optional' is added and 'Union' is kept when still needed
+        (
+            "from typing import Union\nvar: Union[int, None] = None\ndef func() -> Union[str, int]: pass",
+            "from typing import Union, Optional\nvar: Optional[int] = None\ndef func() -> Union[str, int]: pass",
+        ),
+        # Test no changes to imports when 'Optional' is already correctly imported
+        ("from typing import Optional\nvar: int = None", "from typing import Optional\nvar: Optional[int] = None"),
+        # Ensure no duplicate 'Optional' imports are added
+        ("from typing import Optional\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
+    ],
+)
+def test_update_typing_imports(source_code, expected_code):
+    assert update_typing_imports(source_code) == expected_code
