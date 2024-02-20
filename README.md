@@ -10,7 +10,6 @@
 [![Supported implementations](https://img.shields.io/pypi/implementation/typewriter.svg)](https://pypi.org/project/typewriter)
 [![Commits since latest release](https://img.shields.io/github/commits-since/danphenderson/python-typewriter/v0.1.0.svg)](https://github.com/danphenderson/python-typewriter/compare/v0.1.0...main)
 
-An asynchronous interface for chrome automation and scrapping that is built on ``bs4`` and ``selenium``.
 
 
     pip install typewriter
