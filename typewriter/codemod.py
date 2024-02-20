@@ -16,9 +16,12 @@ from libcst import (
 )
 from libcst.codemod import CodemodContext as _CodemodContext
 from libcst.codemod import ContextAwareTransformer as _Codemod
+from libcst.helpers import get_full_name_for_node as get_name
 from rich import print
 
 # TODO: Add duck typing to the codemod classes, e.g. enforce, print_changes, etc.
+
+# region: base classes
 
 
 class CodemodContext(_CodemodContext):
@@ -57,6 +60,9 @@ class Codemod(_Codemod):
         self.code_modifications.append(code_diff)
 
 
+# end region: base classes
+
+
 class EnforceOptionallNoneTypes(Codemod):
     """
     Enforce the use of 'Optional' in all 'NoneType' annotated assignments.
@@ -69,7 +75,7 @@ class EnforceOptionallNoneTypes(Codemod):
 
     def leave_Subscript(self, original_node: Subscript, updated_node: Subscript) -> Subscript:
         # Check if it's a Union type
-        if isinstance(updated_node.value, Name) and updated_node.value.value == "Union":
+        if isinstance(updated_node.value, Name) and get_name(updated_node.value) == "Union":
             union_element = updated_node.slice
 
             # Extract the types in the Union
