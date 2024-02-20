@@ -12,10 +12,10 @@ from libcst import (
     Subscript,
     SubscriptElement,
     parse_expression,
-    parse_statement,
+    parse_module,
 )
-from libcst.codemod import Codemod as _Codemod
 from libcst.codemod import CodemodContext as _CodemodContext
+from libcst.codemod import ContextAwareTransformer as _Codemod
 from rich import print
 
 # TODO: Add duck typing to the codemod classes, e.g. enforce, print_changes, etc.
@@ -36,23 +36,16 @@ class Codemod(_Codemod):
     `made_changes` flag if changes are detected.
     """
 
-    def transform_module_impl(self, tree: CSTNode) -> CSTNode:
-        return tree
-
     def __init__(self, context: CodemodContext) -> None:
         super().__init__(context)
 
     @property
-    def context(self) -> CodemodContext:
-        return getattr(self, "context")
-
-    @property
     def code_modifications(self) -> List:
-        return self.context.code_modifications
+        return getattr(self.context, "code_modifications", [])
 
     @property
     def made_changes(self) -> bool:
-        return self.context.made_changes
+        return getattr(self.context, "made_changes", False)
 
     def report_changes(self, original_node: CSTNode, updated_node: CSTNode, *, print_changes: bool = False) -> None:
         if original_node.deep_equals(updated_node):
@@ -64,7 +57,7 @@ class Codemod(_Codemod):
         self.code_modifications.append(code_diff)
 
 
-class EncforceOptionallNoneTypes(Codemod):
+class EnforceOptionallNoneTypes(Codemod):
     """
     Enforce the use of 'Optional' in all 'NoneType' annotated assignments.
 
@@ -129,24 +122,18 @@ class EncforceOptionallNoneTypes(Codemod):
             raise ValueError(f"Unsupported node type: {type(node)}")
 
 
-def enforce_optional_none_types(file_path: str) -> str:
+def enforce_optional_none_types(code: str) -> str:
     """
-    Apply the EncforceOptionallNoneTypes codemod to the provided file.
-
-    This function will read the file at the provided path, apply the codemod, and return the
-    modified code as a string.
+    Apply the EncforceOptionallNoneTypes codemod to the provided code.
     """
-    with open(file_path, "r") as file:
-        code = file.read()
-
-    module = parse_statement(code)
     context = CodemodContext()
-    codemod = EncforceOptionallNoneTypes(context)
-    module.visit(codemod)  # type: ignore
-    for original_node, updated_node in codemod.code_modifications:
-        codemod.report_changes(original_node, updated_node)
+    module = parse_module(code)  # Parse the entire code as a module
+    codemod = EnforceOptionallNoneTypes(context)
+    modified_tree = module.visit(codemod)
 
-    return getattr(module, "code", "")
+    # Convert the modified CST back to code string
+    modified_code = modified_tree.code
+    return modified_code
 
 
 class EnforceNoneTypesOptional(Codemod):
@@ -192,20 +179,15 @@ class EnforceNoneTypesOptional(Codemod):
         return optional_annotation
 
 
-def enforce_none_types_optional(file_path: str) -> str:
+def enforce_none_types_optional(code: str) -> str:
     """
-    Apply the EnforceNoneTypesOptional codemod to the provided file.
-
-    This function will read the file at the provided path, apply the codemod, and return the
-    modified code as a string.
+    Apply the EnforceNoneTypesOptional codemod to the provided code.
     """
-    with open(file_path, "r") as file:
-        code = file.read()
-
-    module = parse_statement(code)
     context = CodemodContext()
+    module = parse_module(code)  # Parse the entire code as a module
     codemod = EnforceNoneTypesOptional(context)
-    module.visit(codemod)  # type: ignore
-    for original_node, updated_node in codemod.code_modifications:
-        codemod.report_changes(original_node, updated_node)
-    return getattr(module, "code", "")
+    modified_tree = module.visit(codemod)
+
+    # Convert the modified CST back to code string
+    modified_code = modified_tree.code
+    return modified_code
