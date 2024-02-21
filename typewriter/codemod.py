@@ -6,12 +6,9 @@ from libcst import (
     Annotation,
     Attribute,
     CSTNode,
-    ImportAlias,
-    ImportFrom,
     Index,
     Name,
     Param,
-    SimpleStatementLine,
     Subscript,
     SubscriptElement,
     ensure_type,
@@ -53,7 +50,6 @@ class Codemod(_Codemod):
     def report_changes(self, original_node: CSTNode, updated_node: CSTNode, *, print_changes: bool = False) -> None:
         if original_node.deep_equals(updated_node):
             return
-        print(f"Changes detected from {original_node} to {updated_node}")
         origonal_code = getattr(original_node, "code", "")
         updated_code = getattr(updated_node, "code", "")
         code_diff = unified_diff(origonal_code.splitlines(), updated_code.splitlines(), lineterm="")
@@ -88,6 +84,7 @@ class EnforceOptionallNoneTypes(Codemod):
                 else:
                     # Multiple types + None becomes Optional[Union[{', '.join(remaining_types)}]]"
                     new_node = parse_expression(f"Optional[Union[{', '.join(remaining_types)}]]")
+                setattr(self.context, "made_changes", True)
                 return new_node  # type: ignore
 
         return updated_node
@@ -122,9 +119,9 @@ class EnforceOptionallNoneTypes(Codemod):
             raise ValueError(f"Unsupported node type: {type(node)}")
 
 
-class EnforceNoneTypesOptional(Codemod):
+class InferOptionalNonTypes(Codemod):
     """
-    Enforce the use of 'Optional' in annotated assignments to None.
+    Infer that a type is 'Optional' in annotated assignments to None.
 
     This transformer will wrap the type annotation with Optional if the variable is assigned to None
     or if a function parameter has a default value of None. Note, if the annotation is already Optional, or Any,
@@ -136,6 +133,7 @@ class EnforceNoneTypesOptional(Codemod):
             if not self._is_optional_annotation(updated_node.annotation):
                 new_annotation = self._wrap_with_optional(updated_node.annotation)
                 new_node = updated_node.with_changes(annotation=new_annotation)
+                setattr(self.context, "made_changes", True)
                 return new_node
         return updated_node
 
@@ -144,6 +142,7 @@ class EnforceNoneTypesOptional(Codemod):
             if updated_node.annotation is not None and not self._is_optional_annotation(updated_node.annotation):
                 new_annotation = self._wrap_with_optional(updated_node.annotation)
                 new_node = updated_node.with_changes(annotation=new_annotation)
+                setattr(self.context, "made_changes", True)
                 return new_node
         return updated_node
 
@@ -161,52 +160,6 @@ class EnforceNoneTypesOptional(Codemod):
         return optional_annotation
 
 
-class UpdateTypingImports(Codemod):
-    """
-    A transformer that adds 'Optional' to imports if it's used but not imported,
-    and removes 'Union' if it's imported but no longer used.
-    """
-
-    def __init__(self, context: CodemodContext):
-        super().__init__(context)
-        self.context = context
-        self.typing_imports_found: set = set()
-        self.typing_imports_imported: set = set()
-
-    def visit_ImportFrom(self, node: ImportFrom):
-        if matches(getattr(node, "module"), mName("typing")):
-            for alias in getattr(node, "names", []):
-                self.typing_imports_imported.add(alias.name.value)
-        return super().visit_ImportFrom(node)
-
-    def visit_Subscript(self, node: Subscript):
-        base_type = getattr(node.value, "value", None)
-        if base_type in ["Optional", "Union"]:  # Add more types as needed
-            self.typing_imports_found.add(base_type)
-        return super().visit_Subscript(node)
-
-    def leave_Module(self, original_node, updated_node):
-        new_body = []
-        # Determine if imports need to be added
-        typing_imports_needed = self.typing_imports_found - self.typing_imports_imported
-
-        # Process existing nodes to remove or modify the 'typing' import
-        for node in updated_node.body:
-            if isinstance(node, ImportFrom) and node.module.value == "typing":
-                # Skip adding this node immediately, will handle 'typing' import separately
-                continue
-            new_body.append(node)
-
-        # If there are 'typing' imports to include, construct a new import statement
-        if typing_imports_needed:
-            names = [ImportAlias(name=Name(value=import_name)) for import_name in sorted(typing_imports_needed)]
-            typing_import = ImportFrom(module=Name(value="typing"), names=names)
-            # Insert the new 'typing' import at the start of the body
-            new_body.insert(0, SimpleStatementLine(body=[typing_import]))
-
-        return updated_node.with_changes(body=new_body)
-
-
 def enforce_optional_none_types(code: str, context: Optional[CodemodContext] = None) -> str:
     """
     Apply the EncforceOptionallNoneTypes codemod to the provided code.
@@ -218,35 +171,23 @@ def enforce_optional_none_types(code: str, context: Optional[CodemodContext] = N
     return modified_tree.code
 
 
-def enforce_none_types_optional(code: str, context: Optional[CodemodContext] = None) -> str:
+def infer_optional_none_types(code: str, context: Optional[CodemodContext] = None) -> str:
     """
     Apply the EnforceNoneTypesOptional codemod to the provided code.
     """
     context = context or CodemodContext()
     module = parse_module(code)  # Parse the entire code as a module
-    codemod = EnforceNoneTypesOptional(context)
+    codemod = InferOptionalNonTypes(context)
     modified_tree = module.visit(codemod)
     codemod.report_changes(module, modified_tree)
     return modified_tree.code
 
 
-def update_typing_imports(code: str, context: Optional[CodemodContext] = None) -> str:
-    """
-    Apply the UpdateTypingImports codemod to the provided code.
-    """
-    context = context or CodemodContext()
-    module = parse_module(code)  # Parse the entire code as a module
-    codemod = UpdateTypingImports(context)
-    modified_tree = module.visit(codemod)
-    codemod.report_changes(module, modified_tree)
-    return modified_tree.code
-
-
-def enforce_optional(code: str) -> str:
+def apply(code: str) -> str:
     """
     Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.
     """
     context = CodemodContext()
     code = enforce_optional_none_types(code, context)
-    code = enforce_none_types_optional(code, context)
+    code = infer_optional_none_types(code, context)
     return code

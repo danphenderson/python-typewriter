@@ -1,10 +1,9 @@
 import pytest
 
 from typewriter.codemod import (
-    enforce_none_types_optional,
-    enforce_optional,
+    apply,
     enforce_optional_none_types,
-    update_typing_imports,
+    infer_optional_none_types,
 )
 
 
@@ -60,7 +59,7 @@ def test_union_to_optional_transform(source_code, expected_code):
     ],
 )
 def test_enforce_optional_transform(source_code, expected_code):
-    assert enforce_none_types_optional(source_code) == expected_code
+    assert infer_optional_none_types(source_code) == expected_code
 
 
 @pytest.mark.parametrize(
@@ -74,54 +73,28 @@ def test_enforce_optional_transform(source_code, expected_code):
     ],
 )
 def test_enforce_optional(source_code, expected_code):
-    assert enforce_optional(source_code) == expected_code
+    assert apply(source_code) == expected_code
 
 
 def test_inline_comments_are_presserved():
     source_code = "var: Union[int, None] = None  # comment"
     expected_code = "var: Optional[int] = None  # comment"
-    assert enforce_optional(source_code) == expected_code
+    assert apply(source_code) == expected_code
 
 
 def test_docstrings_are_preserved():
     source_code = '"""docstring"""\nvar: Union[int, None] = None'
     expected_code = '"""docstring"""\nvar: Optional[int] = None'
-    assert enforce_optional(source_code) == expected_code
+    assert apply(source_code) == expected_code
 
 
 def test_multiline_docstrings_are_preserved():
     source_code = '"""docstring\nmultiline"""\nvar: Union[int, None] = None'
     expected_code = '"""docstring\nmultiline"""\nvar: Optional[int] = None'
-    assert enforce_optional(source_code) == expected_code
+    assert apply(source_code) == expected_code
 
 
 def test_multiline_comments_are_preserved():
     source_code = '"""docstring"""\nvar: Union[int, None] = None\n# comment\n# comment'
     expected_code = '"""docstring"""\nvar: Optional[int] = None\n# comment\n# comment'
-    assert enforce_optional(source_code) == expected_code
-
-
-# TODO: Test UpdateTypingImports
-
-
-@pytest.mark.parametrize(
-    "source_code, expected_code",
-    [
-        # Ensure 'Optional' is added when needed
-        ("from typing import Union\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
-        # Ensure 'Union' is removed when no longer needed
-        ("from typing import Union, Optional\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
-        # Ensure 'Optional' is added and 'Union' is kept when still needed
-        (
-            "from typing import Union\nvar: Union[int, None] = None\ndef func() -> Union[str, int]: pass",
-            "from typing import Union, Optional\nvar: Optional[int] = None\ndef func() -> Union[str, int]: pass",
-        ),
-        # Test no changes to imports when 'Optional' is already correctly imported
-        ("from typing import Optional\nvar: int = None", "from typing import Optional\nvar: Optional[int] = None"),
-        # Ensure no duplicate 'Optional' imports are added
-        ("from typing import Union\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
-    ],
-)
-def test_update_typing_imports(source_code, expected_code):
-    source_code = enforce_optional(source_code)
-    assert update_typing_imports(source_code) == expected_code
+    assert apply(source_code) == expected_code
