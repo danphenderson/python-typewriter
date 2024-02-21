@@ -119,7 +119,7 @@ def test_multiline_comments_are_preserved():
         # Test no changes to imports when 'Optional' is already correctly imported
         ("from typing import Optional\nvar: int = None", "from typing import Optional\nvar: Optional[int] = None"),
         # Ensure no duplicate 'Optional' imports are added
-        ("from typing import Optional\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
+        ("from typing import Union\nvar: Union[int, None] = None", "from typing import Optional\nvar: Optional[int] = None"),
     ],
 )
 def test_update_typing_imports(source_code, expected_code):
