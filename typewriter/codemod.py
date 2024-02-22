@@ -1,5 +1,6 @@
 from difflib import unified_diff
-from typing import List, Optional, Sequence
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Union
 
 from libcst import (
     AnnAssign,
@@ -19,6 +20,11 @@ from libcst.codemod import CodemodContext as _CodemodContext
 from libcst.codemod import ContextAwareTransformer as _Codemod
 from libcst.matchers import Name as mName
 from libcst.matchers import matches
+
+from typer import typer
+from typer import Exit, Option, Typer, echo
+
+app = Typer()
 
 
 class CodemodContext(_CodemodContext):
@@ -102,6 +108,8 @@ class EnforceOptionallNoneTypes(Codemod):
     def _node_to_string(self, node: CSTNode) -> str:
         """
         Convert a CSTNode to its string representation, handling different node types.
+
+        Performs recursive depth-first search to handle nested nodes.
         """
         if isinstance(node, Name):
             return node.value
@@ -160,34 +168,57 @@ class InferOptionalNonTypes(Codemod):
         return optional_annotation
 
 
-def enforce_optional_none_types(code: str, context: Optional[CodemodContext] = None) -> str:
-    """
-    Apply the EncforceOptionallNoneTypes codemod to the provided code.
-    """
+def _parse_context(context: Optional[Union[CodemodContext, Dict[str, Union[bool, List]]]]) -> CodemodContext:
     context = context or CodemodContext()
+    if isinstance(context, Dict):
+        context = CodemodContext(**context)
+    return context
+
+
+def apply(code: str, codemod: Union[EnforceOptionallNoneTypes, InferOptionalNonTypes]) -> str:
     module = parse_module(code)  # Parse the entire code as a module
-    codemod = EnforceOptionallNoneTypes(context)
     modified_tree = module.visit(codemod)
     return modified_tree.code
 
 
-def infer_optional_none_types(code: str, context: Optional[CodemodContext] = None) -> str:
-    """
-    Apply the EnforceNoneTypesOptional codemod to the provided code.
-    """
-    context = context or CodemodContext()
-    module = parse_module(code)  # Parse the entire code as a module
-    codemod = InferOptionalNonTypes(context)
-    modified_tree = module.visit(codemod)
-    codemod.report_changes(module, modified_tree)
-    return modified_tree.code
-
-
-def apply(code: str) -> str:
+def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union[bool, List]]]] = None) -> str:
     """
     Apply the EnforceOptionalNoneTypes and EnforceNoneTypesOptional codemods to the provided code.
     """
-    context = CodemodContext()
-    code = enforce_optional_none_types(code, context)
-    code = infer_optional_none_types(code, context)
+    context = _parse_context(context)
+    code = apply(code, EnforceOptionallNoneTypes(context))
+    code = apply(code, InferOptionalNonTypes(context))
     return code
+
+
+@app.command()
+def run(
+    filename: Path = Argument(..., exists=True, readable=True, help="The Python file to modify."),
+    codemod_type: str = Option("all", help="The type of codemod to apply. Options: 'enforce_optional', 'infer_optional', 'all'"),
+    in_place: bool = Option(False, help="Whether to modify the file in place. If not, the modified code will be printed to stdout."),
+):
+    """
+    Apply specified codemod to a Python file.
+    """
+    code = filename.read_text()
+    context = CodemodContext()
+
+    if codemod_type == "enforce_optional":
+        modified_code = apply(code, EnforceOptionallNoneTypes(context))
+    elif codemod_type == "infer_optional":
+        modified_code = apply(code, InferOptionalNonTypes(context))
+    elif codemod_type == "all":
+        modified_code = apply_all(code, context)
+    else:
+        echo("Invalid codemod type. Choose 'enforce_optional', 'infer_optional', or 'all'.")
+        raise Exit(code=1)
+
+    if in_place:
+        filename.write_text(modified_code)
+        echo(f"File '{filename}' has been modified in place.")
+    else:
+        echo(modified_code)
+
+
+if __name__ == "__main__":
+    app()

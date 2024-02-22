@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 ipython = "*"
 typewriter = {path = ".", extras = ["docs", "tests", "dev"], editable = true}
+typer = {extras = ["all"], version = "*"}
 
 [dev-packages]
 
