@@ -21,11 +21,6 @@ from libcst.codemod import ContextAwareTransformer as _Codemod
 from libcst.matchers import Name as mName
 from libcst.matchers import matches
 
-from typer import typer
-from typer import Exit, Option, Typer, echo
-
-app = Typer()
-
 
 class CodemodContext(_CodemodContext):
     def __init__(self):
@@ -42,7 +37,8 @@ class Codemod(_Codemod):
     `made_changes` flag if changes are detected.
     """
 
-    def __init__(self, context: CodemodContext) -> None:
+    def __init__(self, context: Optional[CodemodContext] = None) -> None:
+        context = context or CodemodContext()
         super().__init__(context)
 
     @property
@@ -127,7 +123,7 @@ class EnforceOptionallNoneTypes(Codemod):
             raise ValueError(f"Unsupported node type: {type(node)}")
 
 
-class InferOptionalNonTypes(Codemod):
+class InferOptionalNoneTypes(Codemod):
     """
     Infer that a type is 'Optional' in annotated assignments to None.
 
@@ -175,7 +171,7 @@ def _parse_context(context: Optional[Union[CodemodContext, Dict[str, Union[bool,
     return context
 
 
-def apply(code: str, codemod: Union[EnforceOptionallNoneTypes, InferOptionalNonTypes]) -> str:
+def apply(code: str, codemod: Union[EnforceOptionallNoneTypes, InferOptionalNoneTypes]) -> str:
     module = parse_module(code)  # Parse the entire code as a module
     modified_tree = module.visit(codemod)
     return modified_tree.code
@@ -187,38 +183,33 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
     """
     context = _parse_context(context)
     code = apply(code, EnforceOptionallNoneTypes(context))
-    code = apply(code, InferOptionalNonTypes(context))
+    code = apply(code, InferOptionalNoneTypes(context))
     return code
 
 
-@app.command()
-def run(
-    filename: Path = Argument(..., exists=True, readable=True, help="The Python file to modify."),
-    codemod_type: str = Option("all", help="The type of codemod to apply. Options: 'enforce_optional', 'infer_optional', 'all'"),
-    in_place: bool = Option(False, help="Whether to modify the file in place. If not, the modified code will be printed to stdout."),
-):
-    """
-    Apply specified codemod to a Python file.
-    """
-    code = filename.read_text()
-    context = CodemodContext()
+def process_files_in_directory(directory_path: Path):
+    for file in directory_path.glob('**/*.py'):
+        with open(file, 'r', encoding='utf-8') as f:
+            original_content = f.read()
 
-    if codemod_type == "enforce_optional":
-        modified_code = apply(code, EnforceOptionallNoneTypes(context))
-    elif codemod_type == "infer_optional":
-        modified_code = apply(code, InferOptionalNonTypes(context))
-    elif codemod_type == "all":
-        modified_code = apply_all(code, context)
-    else:
-        echo("Invalid codemod type. Choose 'enforce_optional', 'infer_optional', or 'all'.")
-        raise Exit(code=1)
+        transformed_content = apply_all(original_content)
 
-    if in_place:
-        filename.write_text(modified_code)
-        echo(f"File '{filename}' has been modified in place.")
-    else:
-        echo(modified_code)
+        if original_content != transformed_content:
+            with open(file, 'w', encoding='utf-8') as f:
+                f.write(transformed_content)
+            print(f"Transformed {file}")
+
+
+def main() -> None:
+    # Assumeing the script is run from the root of the repository
+    directory = Path.cwd() / Path("playwright")
+    if not directory.exists():
+        raise FileNotFoundError("Directory 'playwright' not found")
+
+    process_files_in_directory(
+        Path.cwd() / Path("playwright"),
+    )
 
 
 if __name__ == "__main__":
-    app()
+    main()
