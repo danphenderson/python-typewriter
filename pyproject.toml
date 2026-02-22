@@ -2,21 +2,24 @@
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-package-dir = {"typewriter" = ""}
-
-[tool.setuptools.dynamic]
-readme = {file = ["README.md"], content-type = "text/markdown"}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["typewriter*"]
 
 [project]
 name = "typewriter"
 version = "0.1.0"
 requires-python = ">=3.8"
 description = "A CLI tool for generating type annotations."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["typing", "codemod", "libcst", "optional", "union", "typer", "cli"]
 authors = [
     {name = "Daniel Henderson", email = "me@danhenderson.dev"},
 ]
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: Unix",
     "Operating System :: POSIX",
@@ -36,6 +39,11 @@ dependencies = [
 [project.scripts]
 typewriter = "typewriter.cli:app"
 
+[project.urls]
+Homepage = "https://github.com/danphenderson/python-typewriter"
+Repository = "https://github.com/danphenderson/python-typewriter"
+Issues = "https://github.com/danphenderson/python-typewriter/issues"
+
 [project.optional-dependencies]
 tests = [
     "coverage[toml]",
@@ -49,27 +57,10 @@ docs = [
     "sphinx",
     "sphinx-py3doc-enhanced-theme",
     "sphinx-autodoc-typehints",
+    "sphinx-autodoc-annotation",
     "sphinxcontrib-asyncio",
     "sphinxcontrib-napoleon",
     "sphinxcontrib-trio",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
-    "sphinx-autodoc-typehints",
-    "sphinx-autodoc-annotation",
 ]
 dev = [
     "pre-commit",
@@ -85,15 +76,15 @@ source = ["typewriter"]
 
 
 [tool.coverage.run]
-branch = ["true"]
+branch = true
 source =[
     "typewriter"
 ]
-parallel = ["false"]
+parallel = false
 
 
 [tool.coverage.report]
-show_missing = ["true"]
+show_missing = true
 precision = 2
 
 

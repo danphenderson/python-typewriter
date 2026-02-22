@@ -4,7 +4,7 @@ on:
   push:
     # Sequence of patterns matched against refs/tags
     tags:
-      - v[0-9]+.[0-9]+.*  # add .* to allow dev releases
+      - v*  # supports semver and prerelease tags like v1.2.3.dev1
 
 permissions: {}
 jobs:
@@ -12,42 +12,32 @@ jobs:
     permissions:
       contents: write # to create a release (actions/create-release)
 
-    name: pipenv PyPI Upload
+    name: PyPI Upload
     runs-on: ubuntu-latest
     env:
       CI: "1"
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
+        python-version: "3.11"
 
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-
-    - name: Install dependencies
+    - name: Install build tooling
       run: |
-        python -m pip install --upgrade --upgrade-strategy=eager pip setuptools build wheel twine
-        python -m pip install -e . --upgrade
-        python -m pipenv install --dev
-      env:
-        PIPENV_DEFAULT_PYTHON_VERSION: "3.10"
+        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install --upgrade build twine
 
-    - name: Build wheels
+    - name: Build distributions
       run: |
-        python -m pipenv run python -m build
+        python -m build
+
+    - name: Verify distributions
+      run: |
+        python -m twine check dist/*
 
     # to upload to test pypi, pass repository_url: https://test.pypi.org/legacy/ and use secrets.TEST_PYPI_TOKEN
     - name: Publish a Python distribution to PyPI
@@ -58,15 +48,12 @@ jobs:
         # repository_url: https://test.pypi.org/legacy/
         packages_dir: dist/
 
-    # git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:master
-    # we need to use a deploy key for this to get around branch protection as the default token fails
-    - name: Pre-bump
-      run: |
-        git config --local user.name 'github-actions[bot]'
-        git config --local user.email 'github-actions[bot]@users.noreply.github.com'
-        python -m pipenv run inv release.bump-version --dev --commit
-
-    - name: Push changes
-      uses: ad-m/github-push-action@master
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        github_token: ${{ secrets.REPO_TOKEN }}
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
