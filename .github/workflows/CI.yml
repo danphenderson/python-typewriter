@@ -44,7 +44,7 @@ jobs:
       GIT_ASK_YESNO: "false"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
       - run: |
@@ -53,18 +53,19 @@ jobs:
   tests:
     name: ${{matrix.os}} / ${{ matrix.python-version }}
     needs: lint
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ endsWith(matrix.python-version, '-dev') }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9, "3.10", 3.11]
-        os: [MacOS, Ubuntu, Windows]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14-dev", "3.15-dev"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -91,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: 3.x
       - run: pip install -U build
