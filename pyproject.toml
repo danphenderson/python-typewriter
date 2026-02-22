@@ -30,15 +30,19 @@ classifiers = [
 ]
 dependencies = [
     "libcst==1.1.0",
-    "rich==13.7.0",
-    "click==8.1.7",
+    "typer==0.24.1"
 ]
+
+[project.scripts]
+typewriter = "typewriter.cli:app"
 
 [project.optional-dependencies]
 tests = [
     "coverage[toml]",
+    "exceptiongroup; python_version < '3.11'",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
+    "tomli; python_version < '3.11'",
 ]
 
 docs = [

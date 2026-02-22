@@ -1,4 +1,5 @@
 from difflib import unified_diff
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Union
 
@@ -164,6 +165,16 @@ class InferOptionalNoneTypes(Codemod):
         return optional_annotation
 
 
+@dataclass(frozen=True)
+class ProcessResult:
+    processed_files: int
+    changed_files: List[Path]
+
+    @property
+    def changed_count(self) -> int:
+        return len(self.changed_files)
+
+
 def _parse_context(context: Optional[Union[CodemodContext, Dict[str, Union[bool, List]]]]) -> CodemodContext:
     context = context or CodemodContext()
     if isinstance(context, Dict):
@@ -187,29 +198,21 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
     return code
 
 
-def process_files_in_directory(directory_path: Path):
-    for file in directory_path.glob('**/*.py'):
-        with open(file, 'r', encoding='utf-8') as f:
+def process_files_in_directory(directory_path: Path, *, write: bool = True) -> ProcessResult:
+    changed_files: List[Path] = []
+    processed_files = 0
+
+    for file in sorted(directory_path.glob("**/*.py")):
+        processed_files += 1
+        with open(file, "r", encoding="utf-8") as f:
             original_content = f.read()
 
         transformed_content = apply_all(original_content)
 
         if original_content != transformed_content:
-            with open(file, 'w', encoding='utf-8') as f:
-                f.write(transformed_content)
-            print(f"Transformed {file}")
+            changed_files.append(file)
+            if write:
+                with open(file, "w", encoding="utf-8") as f:
+                    f.write(transformed_content)
 
-
-def main() -> None:
-    # Assumeing the script is run from the root of the repository
-    directory = Path.cwd() / Path("playwright")
-    if not directory.exists():
-        raise FileNotFoundError("Directory 'playwright' not found")
-
-    process_files_in_directory(
-        Path.cwd() / Path("playwright"),
-    )
-
-
-if __name__ == "__main__":
-    main()
+    return ProcessResult(processed_files=processed_files, changed_files=changed_files)

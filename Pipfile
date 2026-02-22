@@ -4,9 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+exceptiongroup = {version = "*", markers = "python_version < '3.11'"}
 ipython = "*"
+tomli = {version = "*", markers = "python_version < '3.11'"}
 typewriter = {path = ".", extras = ["docs", "tests", "dev"], editable = true}
-typer = {extras = ["all"], version = "*"}
+typer = "*"
 
 [dev-packages]
 
