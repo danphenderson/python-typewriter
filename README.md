@@ -1,6 +1,6 @@
 # Typewriter
 
-![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)
+[![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](https://danphenderson.github.io/python-typewriter/)
 [![GitHub Actions Build Status](https://github.com/danphenderson/python-typewriter/actions/workflows/CI.yml/badge.svg)](https://github.com/danphenderson/python-typewriter/actions)
 [![Coverage Status](https://coveralls.io/repos/danphenderson/python-typewriter/badge.svg?branch=main&service=github)](https://coveralls.io/r/danphenderson/python-typewriter)
 [![Coverage Status](https://codecov.io/gh/danphenderson/python-typewriter/branch/main/graphs/badge.svg?branch=main)](https://codecov.io/github/danphenderson/python-typewriter)
