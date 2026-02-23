@@ -51,10 +51,13 @@ jobs:
           path: dist/
 
       - name: Ensure PYPI_TOKEN is set
-        if: ${{ secrets.PYPI_TOKEN == '' }}
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
-          echo "Missing required secret: PYPI_TOKEN" >&2
-          exit 1
+          if [ -z "$PYPI_TOKEN" ]; then
+            echo "Missing required secret: PYPI_TOKEN" >&2
+            exit 1
+          fi
 
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
