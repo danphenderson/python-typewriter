@@ -41,6 +41,7 @@ jobs:
 
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Retrieve release distributions
@@ -48,6 +49,12 @@ jobs:
         with:
           name: release-dists
           path: dist/
+
+      - name: Ensure PYPI_TOKEN is set
+        if: ${{ secrets.PYPI_TOKEN == '' }}
+        run: |
+          echo "Missing required secret: PYPI_TOKEN" >&2
+          exit 1
 
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
