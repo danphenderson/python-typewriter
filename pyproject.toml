@@ -9,7 +9,7 @@ include = ["typewriter*"]
 [project]
 name = "typewriter"
 version = "0.1.0"
-requires-python = ">=3.10,<3.16"
+requires-python = ">=3.10,<3.14"
 description = "A CLI tool for generating type annotations."
 readme = "README.md"
 license = "MIT"
@@ -29,8 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14"
+    "Programming Language :: Python :: 3.13"
 ]
 dependencies = [
     "libcst==1.1.0",
