@@ -4,10 +4,10 @@
 [![GitHub Actions Build Status](https://github.com/danphenderson/python-typewriter/actions/workflows/CI.yml/badge.svg)](https://github.com/danphenderson/python-typewriter/actions)
 [![Coverage Status](https://coveralls.io/repos/danphenderson/python-typewriter/badge.svg?branch=main&service=github)](https://coveralls.io/r/danphenderson/python-typewriter)
 [![Coverage Status](https://codecov.io/gh/danphenderson/python-typewriter/branch/main/graphs/badge.svg?branch=main)](https://codecov.io/github/danphenderson/python-typewriter)
-[![PyPI Package latest release](https://img.shields.io/pypi/v/typewriter.svg)](https://pypi.org/project/typewriter)
-[![PyPI Wheel](https://img.shields.io/pypi/wheel/typewriter.svg)](https://pypi.org/project/typewriter)
-[![Supported versions](https://img.shields.io/pypi/pyversions/typewriter.svg)](https://pypi.org/project/typewriter)
-[![Supported implementations](https://img.shields.io/pypi/implementation/typewriter.svg)](https://pypi.org/project/typewriter)
+[![PyPI Package latest release](https://img.shields.io/pypi/v/python-typewriter.svg)](https://pypi.org/project/python-typewriter)
+[![PyPI Wheel](https://img.shields.io/pypi/wheel/python-typewriter.svg)](https://pypi.org/project/python-typewriter)
+[![Supported versions](https://img.shields.io/pypi/pyversions/python-typewriter.svg)](https://pypi.org/project/python-typewriter)
+[![Supported implementations](https://img.shields.io/pypi/implementation/python-typewriter.svg)](https://pypi.org/project/python-typewriter)
 
 ## Overview
 
@@ -32,7 +32,7 @@ When you run against a directory, Typewriter recursively processes `*.py` files 
 ## Installation
 
 ```bash
-pip install typewriter
+pip install python-typewriter
 ```
 
 ## Quick Start
