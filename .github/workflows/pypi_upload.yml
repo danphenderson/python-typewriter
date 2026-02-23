@@ -1,59 +1,43 @@
-name: Upload Python Package
+name: Publish to PyPI
 
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - v*  # supports semver and prerelease tags like v1.2.3.dev1
+      - "v*"
 
 permissions: {}
-jobs:
-  deploy:
-    permissions:
-      contents: write # to create a release (actions/create-release)
 
-    name: PyPI Upload
+jobs:
+  publish:
+    name: Build & Publish
     runs-on: ubuntu-latest
     env:
       CI: "1"
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.x"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install build tooling
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        python -m pip install --upgrade build twine
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade build twine
 
-    - name: Build distributions
-      run: |
-        python -m build
+      - name: Build distributions
+        run: |
+          python -m build
 
-    - name: Verify distributions
-      run: |
-        python -m twine check dist/*
+      - name: Verify distributions
+        run: |
+          python -m twine check dist/*
 
-    # to upload to test pypi, pass repository_url: https://test.pypi.org/legacy/ and use secrets.TEST_PYPI_TOKEN
-    - name: Publish a Python distribution to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_TOKEN }}
-        # repository_url: https://test.pypi.org/legacy/
-        packages_dir: dist/
-
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
-        draft: false
-        prerelease: false
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
