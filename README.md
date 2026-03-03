@@ -2,8 +2,8 @@
 
 [![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](https://danphenderson.github.io/python-typewriter/)
 [![GitHub Actions Build Status](https://github.com/danphenderson/python-typewriter/actions/workflows/CI.yml/badge.svg)](https://github.com/danphenderson/python-typewriter/actions)
-[![Coverage Status](https://coveralls.io/repos/danphenderson/python-typewriter/badge.svg?branch=main&service=github)](https://coveralls.io/r/danphenderson/python-typewriter)
-[![Coverage Status](https://codecov.io/gh/danphenderson/python-typewriter/branch/main/graphs/badge.svg?branch=main)](https://codecov.io/github/danphenderson/python-typewriter)
+[![Coveralls](https://coveralls.io/repos/github/danphenderson/python-typewriter/badge.svg?branch=main)](https://coveralls.io/github/danphenderson/python-typewriter?branch=main)
+[![Codecov](https://codecov.io/gh/danphenderson/python-typewriter/graph/badge.svg?branch=main)](https://codecov.io/gh/danphenderson/python-typewriter)
 [![PyPI Package latest release](https://img.shields.io/pypi/v/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 [![PyPI Wheel](https://img.shields.io/pypi/wheel/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 [![Supported versions](https://img.shields.io/pypi/pyversions/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
@@ -21,8 +21,8 @@ Typewriter is a Python [Typer](https://typer.tiangolo.com/) CLI built on [LibCST
 - `def f(x: T = None)` -> `def f(x: Optional[T] = None)`
 
 Additional behavior:
-- `Any` annotations are left unchanged (for example, `x: Any = None` stays unchanged).
-- Qualified typing references are preserved (for example, `typing.Union[...]` -> `typing.Optional[...]`).
+- `Any` annotations are left unchanged (e.g., `x: Any = None` stays unchanged).
+- Qualified typing references are preserved (e.g., `typing.Union[..., None]` -> `typing.Optional[...]`).
 - When bare `Optional[...]` is introduced, Typewriter adds `from typing import Optional` when needed. Also, if `Union` is no longer needed, Typewriter removes the previously imported `Union` from `typing`.
 
 ### Directory scanning behavior
