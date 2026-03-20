@@ -1,12 +1,29 @@
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import click
 import typer
 
-from typewriter.codemod import process_code, process_file, process_files_in_directory
+from typewriter.codemod import CodemodContext, process_code, process_file, process_files_in_directory
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
+
+
+def _parse_target_version(value: Optional[str]) -> Optional[bool]:
+    """Return *True* when *value* indicates Python 3.10+ (PEP 604 unions)."""
+    if value is None:
+        return False
+    try:
+        parts = value.replace("py", "").split(".")
+        if len(parts) == 1 and len(parts[0]) >= 3:
+            # e.g. "py310" → (3, 10)
+            major = int(parts[0][0])
+            minor = int(parts[0][1:])
+        else:
+            major, minor = int(parts[0]), int(parts[1])
+        return (major, minor) >= (3, 10)
+    except (ValueError, IndexError):
+        raise typer.BadParameter(f"Invalid target version: {value!r}. Use e.g. '3.10' or '3.9'.")
 
 
 @app.callback()
@@ -36,19 +53,42 @@ def run(
         "--check",
         help="Show files that would change without writing updates.",
     ),
+    target_version: Optional[str] = typer.Option(
+        None,
+        "--target-version",
+        help=(
+            "Target Python version (e.g. '3.10'). "
+            "Python 3.10+ enables PEP 604 union syntax (T | None) instead of Optional[T]."
+        ),
+    ),
+    ignore: Optional[List[str]] = typer.Option(
+        None,
+        "--ignore",
+        help=(
+            "Glob pattern for files or directories to skip. "
+            "Matched against both the bare name and the path relative to the "
+            "scanned directory. May be repeated."
+        ),
+    ),
 ) -> None:
     """Rewrite `None`-related type annotations in a file or directory.
 
     Provide either `PATH` (a Python file or directory) or `--code` (in-memory source).
     Use `--check` to preview changes and return a non-zero exit code when rewrites would occur.
+    Use `--target-version 3.10` to emit PEP 604 union syntax (`T | None`).
+    Use `--ignore` to skip additional files or directories by glob pattern.
     """
     try:
+        use_pep604 = _parse_target_version(target_version)
+        context = CodemodContext(use_pep604=use_pep604)
+        extra_ignore_patterns = list(ignore) if ignore else None
+
         if code is not None:
             if path is not None:
                 raise typer.BadParameter("Provide either PATH or --code, not both.")
 
             normalized_code = code.replace("\\n", "\n")
-            string_result = process_code(normalized_code)
+            string_result = process_code(normalized_code, context=context)
             if check:
                 if string_result.changed:
                     typer.echo("Would transform provided code.")
@@ -75,11 +115,17 @@ def run(
             raise typer.Exit(code=2)
 
         if path.is_dir():
-            result = process_files_in_directory(path, write=not check, include_diff=check)
+            result = process_files_in_directory(
+                path,
+                write=not check,
+                include_diff=check,
+                context=context,
+                extra_ignore_patterns=extra_ignore_patterns,
+            )
         else:
             if path.suffix != ".py":
                 raise typer.BadParameter("Only '.py' files are supported.")
-            result = process_file(path, write=not check, include_diff=check)
+            result = process_file(path, write=not check, include_diff=check, context=context)
     except (typer.Exit, click.ClickException):
         raise
     except Exception as exc:
