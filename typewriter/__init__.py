@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import importlib.metadata as metadata
+import importlib.metadata as importlib_metadata
 from pathlib import Path
 
 import tomllib
@@ -28,8 +28,8 @@ def _read_pyproject_version() -> str | None:
 
 def _resolve_version() -> str:
     try:
-        return metadata.version(_DISTRIBUTION_NAME)
-    except metadata.PackageNotFoundError:  # pragma: no cover
+        return importlib_metadata.version(_DISTRIBUTION_NAME)
+    except importlib_metadata.PackageNotFoundError:  # pragma: no cover
         return _read_pyproject_version() or "0.0.0"
 
 

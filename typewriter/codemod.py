@@ -350,6 +350,9 @@ def _cleanup_typing_imports(code: str, context: CodemodContext) -> str:
     """Drop now-unused ``typing`` imports introduced or obsoleted by rewrites."""
     if getattr(context, "rewrote_union_none_annotation", False):
         code = _remove_typing_import_if_unused(code, "Union")
+    # In PEP 604 mode, inference-only rewrites can make an existing Optional import
+    # unused even when no Union[...] annotation was rewritten. Gate this on actual
+    # codemod changes so we do not clean up unrelated imports in otherwise-untouched files.
     if getattr(context, "use_pep604", False) and getattr(context, "made_changes", False):
         code = _remove_typing_import_if_unused(code, "Optional")
     return code
