@@ -345,8 +345,8 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
     code = apply(code, AddImportsVisitor(context))
     if getattr(context, "rewrote_union_none_annotation", False):
         code = _remove_typing_import_if_unused(code, "Union")
-        if getattr(context, "use_pep604", False):
-            code = _remove_typing_import_if_unused(code, "Optional")
+    if getattr(context, "use_pep604", False) and getattr(context, "made_changes", False):
+        code = _remove_typing_import_if_unused(code, "Optional")
     return code
 
 

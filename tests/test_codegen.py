@@ -201,6 +201,16 @@ def test_pep604_process_code_infer():
     assert "Optional" not in result.transformed_code
 
 
+def test_pep604_infer_removes_unused_optional_import():
+    """Inference-only PEP 604 rewrites should drop now-unused Optional imports."""
+    source = "from typing import Optional\nx: int = None\n"
+    ctx = CodemodContext(use_pep604=True)
+    result = process_code(source, context=ctx)
+
+    assert result.changed is True
+    assert result.transformed_code == "x: int | None = None\n"
+
+
 def test_pep604_combined_union_and_infer():
     """Both transformers chain correctly in PEP 604 mode."""
     source = "from typing import Union\nx: Union[int, None] = None\ny: str = None\n"
@@ -365,6 +375,23 @@ def test_version_is_not_fallback_when_installed():
 
     # The fallback is "0.0.0"; an installed package must report a real version.
     assert __version__ != "0.0.0"
+
+
+def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailable(monkeypatch):
+    import typewriter
+
+    monkeypatch.setattr(typewriter.metadata, "version", lambda _: (_ for _ in ()).throw(typewriter.metadata.PackageNotFoundError("missing")))
+
+    assert typewriter._resolve_version() == "1.0.0"
+
+
+def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(monkeypatch):
+    import typewriter
+
+    monkeypatch.setattr(typewriter.metadata, "version", lambda _: (_ for _ in ()).throw(typewriter.metadata.PackageNotFoundError("missing")))
+    monkeypatch.setattr(typewriter, "_read_pyproject_version", lambda: None)
+
+    assert typewriter._resolve_version() == "0.0.0"
 
 
 # ---------------------------------------------------------------------------
