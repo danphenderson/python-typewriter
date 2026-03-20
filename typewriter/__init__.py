@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.metadata as metadata
 from pathlib import Path
-from typing import Optional
 
 import tomllib
 
@@ -10,7 +9,7 @@ _DISTRIBUTION_NAME = "py-typewriter-cli"
 _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 
-def _read_pyproject_version() -> Optional[str]:
+def _read_pyproject_version() -> str | None:
     try:
         with _PYPROJECT_PATH.open("rb") as pyproject_file:
             pyproject = tomllib.load(pyproject_file)

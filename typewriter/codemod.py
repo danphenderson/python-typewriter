@@ -343,6 +343,11 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
     code = apply(code, EnforceOptionallNoneTypes(context))
     code = apply(code, InferOptionalNoneTypes(context))
     code = apply(code, AddImportsVisitor(context))
+    return _cleanup_typing_imports(code, context)
+
+
+def _cleanup_typing_imports(code: str, context: CodemodContext) -> str:
+    """Drop now-unused ``typing`` imports introduced or obsoleted by rewrites."""
     if getattr(context, "rewrote_union_none_annotation", False):
         code = _remove_typing_import_if_unused(code, "Union")
     if getattr(context, "use_pep604", False) and getattr(context, "made_changes", False):

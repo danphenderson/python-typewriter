@@ -380,7 +380,10 @@ def test_version_is_not_fallback_when_installed():
 def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailable(monkeypatch):
     import typewriter
 
-    monkeypatch.setattr(typewriter.metadata, "version", lambda _: (_ for _ in ()).throw(typewriter.metadata.PackageNotFoundError("missing")))
+    def raise_missing_distribution(_: str) -> str:
+        raise typewriter.metadata.PackageNotFoundError("missing")
+
+    monkeypatch.setattr(typewriter.metadata, "version", raise_missing_distribution)
 
     assert typewriter._resolve_version() == "1.0.0"
 
@@ -388,7 +391,10 @@ def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailab
 def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(monkeypatch):
     import typewriter
 
-    monkeypatch.setattr(typewriter.metadata, "version", lambda _: (_ for _ in ()).throw(typewriter.metadata.PackageNotFoundError("missing")))
+    def raise_missing_distribution(_: str) -> str:
+        raise typewriter.metadata.PackageNotFoundError("missing")
+
+    monkeypatch.setattr(typewriter.metadata, "version", raise_missing_distribution)
     monkeypatch.setattr(typewriter, "_read_pyproject_version", lambda: None)
 
     assert typewriter._resolve_version() == "0.0.0"
