@@ -20,10 +20,10 @@ def _read_pyproject_version() -> str | None:
     if not isinstance(project, dict):  # pragma: no cover
         return None
 
-    version = project.get("version")
-    if not isinstance(version, str):  # pragma: no cover
+    project_version = project.get("version")
+    if not isinstance(project_version, str):  # pragma: no cover
         return None
-    return version
+    return project_version
 
 
 def _resolve_version() -> str:
