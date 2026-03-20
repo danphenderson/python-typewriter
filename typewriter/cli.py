@@ -9,7 +9,7 @@ from typewriter.codemod import CodemodContext, process_code, process_file, proce
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
 
-def _parse_target_version(value: Optional[str]) -> Optional[bool]:
+def _parse_target_version(value: Optional[str]) -> bool:
     """Return *True* when *value* indicates Python 3.10+ (PEP 604 unions)."""
     if value is None:
         return False

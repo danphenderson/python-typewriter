@@ -125,14 +125,14 @@ class EnforceOptionallNoneTypes(Codemod):
             slice=[SubscriptElement(slice=Index(value=optional_inner_value))],
         )
 
-    def _build_pep604_union(self, remaining_elements: List[SubscriptElement]) -> BinaryOperation:
+    def _build_pep604_union(self, remaining_elements: List[SubscriptElement]) -> BaseExpression:
         """Build a PEP 604 union expression: ``T1 | T2 | None``."""
         inner_values = [ensure_type(el.slice, Index).value for el in remaining_elements]
         inner_values.append(Name("None"))
         result: BaseExpression = inner_values[0]
         for value in inner_values[1:]:
             result = BinaryOperation(left=result, operator=BitOr(), right=value)
-        return result  # type: ignore[return-value]
+        return result
 
     def _is_union_reference(self, node: BaseExpression) -> bool:
         if isinstance(node, Name):
@@ -282,10 +282,13 @@ def _iter_python_files(directory_path: Path, extra_ignore_patterns: Optional[Seq
 
     Directories in :data:`SKIP_DIRECTORY_NAMES` are always skipped.  When
     *extra_ignore_patterns* is provided, each entry is treated as a glob pattern
-    matched against both the bare directory/file name **and** the path relative
-    to *directory_path*.  For example, ``"generated_*"`` skips any directory or
-    file whose name starts with ``generated_``, and ``"src/vendor/*"`` skips
-    everything under ``src/vendor/``.
+    (via :func:`fnmatch.fnmatch`) matched against both the bare directory/file
+    name **and** the path relative to *directory_path*.  For example,
+    ``"generated_*"`` skips any directory or file whose name starts with
+    ``generated_``, and ``"src/vendor/*"`` skips everything under
+    ``src/vendor/``.  Use forward slashes in patterns; ``fnmatch`` treats them as
+    literal characters, which matches how :class:`pathlib.Path` serializes on all
+    platforms.
     """
     ignore_patterns: Sequence[str] = list(extra_ignore_patterns) if extra_ignore_patterns else []
     python_files: List[Path] = []
