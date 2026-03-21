@@ -27,7 +27,12 @@ project = 'typewriter'
 year = '2024'
 author = 'Daniel P. Henderson'
 copyright = '{0}, {1}'.format(year, author)
-version = release = '0.1.0'
+try:
+    from typewriter import __version__ as _pkg_version
+except Exception:
+    _pkg_version = '0.0.0'
+
+version = release = _pkg_version
 
 pygments_style = 'trac'
 templates_path = ['.']

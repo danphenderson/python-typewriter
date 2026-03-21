@@ -139,3 +139,123 @@ def test_run_code_check_returns_zero_when_no_changes_needed():
 
     assert result.exit_code == 0
     assert "No changes." in result.output
+
+
+# ---------------------------------------------------------------------------
+# --target-version
+# ---------------------------------------------------------------------------
+def test_run_code_with_target_version_310_uses_pep604():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--target-version", "3.10"])
+
+    assert result.exit_code == 0
+    assert "int | None" in result.output
+    assert "Optional" not in result.output
+
+
+def test_run_code_with_target_version_39_uses_optional():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--target-version", "3.9"])
+
+    assert result.exit_code == 0
+    assert "Optional[int]" in result.output
+
+
+def test_run_code_default_target_version_uses_optional():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n"])
+
+    assert result.exit_code == 0
+    assert "Optional[int]" in result.output
+
+
+def test_run_code_target_version_invalid_is_rejected():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--target-version", "abc"])
+
+    assert result.exit_code != 0
+
+
+def test_run_directory_with_target_version_310(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--target-version", "3.10"])
+
+    assert result.exit_code == 0
+    updated = file_path.read_text(encoding="utf-8")
+    assert "int | None" in updated
+
+
+def test_run_code_with_target_version_310_normalizes_optional_and_union():
+    result = runner.invoke(
+        app,
+        ["run", "--code", "from typing import Optional, Union\nx: Optional[int]\ny: Union[str, int]\n", "--target-version", "3.10"],
+    )
+
+    assert result.exit_code == 0
+    assert "x: int | None" in result.output
+    assert "y: str | int" in result.output
+    assert "Optional" not in result.output
+    assert "Union" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# --ignore
+# ---------------------------------------------------------------------------
+def test_run_ignore_skips_matching_directories(tmp_path):
+    source = tmp_path / "src" / "a.py"
+    source.parent.mkdir(parents=True)
+    source.write_text("var: int = None\n", encoding="utf-8")
+
+    skipped = tmp_path / "generated" / "b.py"
+    skipped.parent.mkdir(parents=True)
+    skipped.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--ignore", "generated"])
+
+    assert result.exit_code == 1
+    assert "1 file(s) would be transformed." in result.output
+    assert "generated" not in result.output
+
+
+def test_run_ignore_skips_matching_files(tmp_path):
+    source = tmp_path / "module.py"
+    source.write_text("var: int = None\n", encoding="utf-8")
+
+    skipped = tmp_path / "test_module.py"
+    skipped.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--ignore", "test_*"])
+
+    assert result.exit_code == 1
+    assert "1 file(s) would be transformed." in result.output
+
+
+def test_run_multiple_ignore_patterns(tmp_path):
+    source = tmp_path / "good.py"
+    source.write_text("var: int = None\n", encoding="utf-8")
+
+    skip1 = tmp_path / "test_x.py"
+    skip1.write_text("var: int = None\n", encoding="utf-8")
+
+    skip2 = tmp_path / "generated" / "y.py"
+    skip2.parent.mkdir(parents=True)
+    skip2.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--ignore", "test_*", "--ignore", "generated"])
+
+    assert result.exit_code == 1
+    assert "1 file(s) would be transformed." in result.output
+
+
+def test_run_respect_gitignore_skips_ignored_files(tmp_path):
+    source = tmp_path / "module.py"
+    source.write_text("var: int = None\n", encoding="utf-8")
+
+    skipped = tmp_path / "generated.py"
+    skipped.write_text("var: int = None\n", encoding="utf-8")
+
+    (tmp_path / ".gitignore").write_text("generated.py\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--respect-gitignore"])
+
+    assert result.exit_code == 1
+    assert "1 file(s) would be transformed." in result.output
+    assert "generated.py" not in result.output

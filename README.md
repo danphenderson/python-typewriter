@@ -13,7 +13,7 @@
 
 Typewriter is a Python [Typer](https://typer.tiangolo.com/) CLI built on [LibCST](https://libcst.readthedocs.io/en/latest/) that normalizes `None`-related type annotations in Python source code. It can be used to automatically rewrite type annotations to use `Optional` instead of `Union` when `None` is involved, and to ensure `Optional` is used for variable and parameter annotations when the default value is `None`.
 
-What it rewrites:
+What it rewrites (default mode, Python 3.9-compatible):
 ```python
 Union[T, None] -> Optional[T]
 
@@ -24,10 +24,26 @@ x: T = None -> x: Optional[T] = None
 def f(x: T = None) -> def f(x: Optional[T] = None)
 ```
 
+With `--target-version 3.10` (PEP 604 mode):
+```python
+Union[T, None] -> T | None
+
+Optional[T] -> T | None
+
+Union[T1, T2] -> T1 | T2
+
+Union[T1, T2, None] -> T1 | T2 | None
+
+x: T = None -> x: T | None = None
+
+def f(x: T = None) -> def f(x: T | None = None)
+```
+
 Additional notes:
 - `x: Any = None` stays unchanged.
 - Qualified typing references are preserved.
 - Import statements are added as needed and deduplicated.
+- Unused `Union` and `Optional` imports are cleaned up after rewriting.
 
 ## Quick Start
 
@@ -82,12 +98,41 @@ To transform an in-memory string and return the result to stdout, use `--code`:
 ```bash
 typewriter run --code "var: int = None\\n"
 ```
+
+#### PEP 604 mode
+To emit `T | None` style unions instead of `Optional[T]`, pass `--target-version 3.10` (or any Python 3.10+ version):
+```bash
+typewriter run path/to/example.py --target-version 3.10
+```
+In this mode, existing `Optional[...]` and `Union[...]` annotations are normalized to
+PEP 604 syntax too.
+The default output remains Python 3.9-compatible (`Optional[T]`).
+
+#### Skip configuration
+To skip additional files or directories by glob pattern, use `--ignore` (repeatable):
+```bash
+typewriter run myproject --ignore "test_*" --ignore "generated"
+```
+Patterns are matched against both the bare file/directory name **and** the relative
+path from the scanned root.  The built-in skip set (`.git`, `.venv`, `__pycache__`,
+`build`, `dist`, etc.) is always active regardless of extra patterns.
+
+To also honor the nearest `.gitignore` at or above the scanned directory:
+```bash
+typewriter run myproject --respect-gitignore
+```
+
 #### Additional Details:
 - `PATH` and `--code` are mutually exclusive.
 - Literal `\\n` sequences in `--code` input are interpreted as newlines.
 - When a directory is provided as `PATH`, Typewriter will ignore non-`.py` files and
 common non-source subdirectories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.
-- We ignore the more recent `PEP 604` syntax of `T | None` since it is not supported in Python 3.9, which is currently supported by `microsoft/playwright-python` and the ecosystem. However, support for this syntax may be added in the future.
+- PEP 604 syntax (`T | None`) is opt-in via `--target-version 3.10` and is not used by default.
+
+### Versioning
+The package version is the single source of truth. The documentation version in
+`docs/source/conf.py` is derived automatically from `typewriter.__version__`, which
+reads the distribution metadata for `py-typewriter-cli`.
 
 ## Motivation
 

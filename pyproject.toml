@@ -33,6 +33,7 @@ classifiers = [
 ]
 dependencies = [
     "libcst==1.1.0",
+    "pathspec==1.0.4",
     "typer==0.24.1"
 ]
 
