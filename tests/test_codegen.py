@@ -429,7 +429,7 @@ def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailab
 
     monkeypatch.setattr(typewriter.importlib_metadata, "version", raise_missing_distribution)
 
-    assert typewriter._resolve_version() == "1.0.0"
+    assert typewriter._resolve_version() == "1.1.0"
 
 
 def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(monkeypatch):
@@ -452,7 +452,7 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
     class FakeTomli:
         @staticmethod
         def load(_file_obj):
-            return {"project": {"version": "1.0.0"}}
+            return {"project": {"version": "1.1.0"}}
 
     original_import = builtins.__import__
 
