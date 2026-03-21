@@ -4,7 +4,7 @@ import warnings
 from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Union
+from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from libcst import (
     AnnAssign,
@@ -324,7 +324,7 @@ def _matches_any_pattern(path: str, patterns: Sequence[str]) -> bool:
     return any(fnmatch.fnmatch(path, pat) for pat in patterns)
 
 
-def _load_gitignore_spec(directory_path: Path) -> Optional[tuple[Path, GitIgnoreSpec]]:
+def _load_gitignore_spec(directory_path: Path) -> Optional[Tuple[Path, GitIgnoreSpec]]:
     for candidate in (directory_path, *directory_path.parents):
         gitignore_path = candidate / ".gitignore"
         if gitignore_path.is_file():
@@ -337,7 +337,7 @@ def _is_gitignored(
     path: Path,
     *,
     directory_path: Path,
-    gitignore: Optional[tuple[Path, GitIgnoreSpec]],
+    gitignore: Optional[Tuple[Path, GitIgnoreSpec]],
     is_directory: bool,
 ) -> bool:
     if gitignore is None:

@@ -254,6 +254,14 @@ def test_import_cleanup_removes_optional_import_in_pep604_mode_when_unused():
     assert "Optional" not in result.transformed_code
 
 
+def test_import_cleanup_removes_optional_import_after_optional_rewrite_in_pep604_mode():
+    source = "from typing import Optional\nx: Optional[int]\n"
+    ctx = CodemodContext(use_pep604=True)
+    result = process_code(source, context=ctx)
+
+    assert result.transformed_code == "x: int | None\n"
+
+
 def test_import_cleanup_keeps_aliased_optional_import_in_pep604_mode():
     """Aliased Optional imports stay if they remain referenced after rewrites."""
     source = "from typing import Optional as Opt, Union\nx: Union[int, None] = None\ny: Opt[str]\n"
