@@ -183,6 +183,19 @@ def test_run_directory_with_target_version_310(tmp_path):
     assert "int | None" in updated
 
 
+def test_run_code_with_target_version_310_normalizes_optional_and_union():
+    result = runner.invoke(
+        app,
+        ["run", "--code", "from typing import Optional, Union\nx: Optional[int]\ny: Union[str, int]\n", "--target-version", "3.10"],
+    )
+
+    assert result.exit_code == 0
+    assert "x: int | None" in result.output
+    assert "y: str | int" in result.output
+    assert "Optional" not in result.output
+    assert "Union" not in result.output
+
+
 # ---------------------------------------------------------------------------
 # --ignore
 # ---------------------------------------------------------------------------
@@ -230,3 +243,19 @@ def test_run_multiple_ignore_patterns(tmp_path):
 
     assert result.exit_code == 1
     assert "1 file(s) would be transformed." in result.output
+
+
+def test_run_respect_gitignore_skips_ignored_files(tmp_path):
+    source = tmp_path / "module.py"
+    source.write_text("var: int = None\n", encoding="utf-8")
+
+    skipped = tmp_path / "generated.py"
+    skipped.write_text("var: int = None\n", encoding="utf-8")
+
+    (tmp_path / ".gitignore").write_text("generated.py\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--respect-gitignore"])
+
+    assert result.exit_code == 1
+    assert "1 file(s) would be transformed." in result.output
+    assert "generated.py" not in result.output

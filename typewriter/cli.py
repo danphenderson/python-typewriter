@@ -4,7 +4,12 @@ from typing import List, Optional
 import click
 import typer
 
-from typewriter.codemod import CodemodContext, process_code, process_file, process_files_in_directory
+from typewriter.codemod import (
+    CodemodContext,
+    process_code,
+    process_file,
+    process_files_in_directory,
+)
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
@@ -56,10 +61,7 @@ def run(
     target_version: Optional[str] = typer.Option(
         None,
         "--target-version",
-        help=(
-            "Target Python version (e.g. '3.10'). "
-            "Python 3.10+ enables PEP 604 union syntax (T | None) instead of Optional[T]."
-        ),
+        help=("Target Python version (e.g. '3.10'). " "Python 3.10+ enables PEP 604 union syntax (T | None) instead of Optional[T]."),
     ),
     ignore: Optional[List[str]] = typer.Option(
         None,
@@ -70,6 +72,11 @@ def run(
             "scanned directory. May be repeated."
         ),
     ),
+    respect_gitignore: bool = typer.Option(
+        False,
+        "--respect-gitignore",
+        help="Respect the nearest .gitignore at or above the scanned directory.",
+    ),
 ) -> None:
     """Rewrite `None`-related type annotations in a file or directory.
 
@@ -77,6 +84,7 @@ def run(
     Use `--check` to preview changes and return a non-zero exit code when rewrites would occur.
     Use `--target-version 3.10` to emit PEP 604 union syntax (`T | None`).
     Use `--ignore` to skip additional files or directories by glob pattern.
+    Use `--respect-gitignore` to also skip files ignored by Git.
     """
     try:
         use_pep604 = _parse_target_version(target_version)
@@ -121,6 +129,7 @@ def run(
                 include_diff=check,
                 context=context,
                 extra_ignore_patterns=extra_ignore_patterns,
+                respect_gitignore=respect_gitignore,
             )
         else:
             if path.suffix != ".py":

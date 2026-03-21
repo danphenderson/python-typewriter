@@ -2,7 +2,7 @@ import pytest
 
 from typewriter.codemod import (
     CodemodContext,
-    EnforceOptionallNoneTypes,
+    EnforceOptionalNoneTypes,
     InferOptionalNoneTypes,
     _iter_python_files,
     apply,
@@ -38,7 +38,7 @@ from typewriter.codemod import (
     ],
 )
 def test_union_to_optional_transform(source_code, expected_code):
-    assert apply(source_code, EnforceOptionallNoneTypes()) == expected_code
+    assert apply(source_code, EnforceOptionalNoneTypes()) == expected_code
 
 
 # ---------------------------------------------------------------------------
@@ -74,14 +74,16 @@ def test_enforce_optional_transform(source_code, expected_code):
         ("a: Union[str, int, None]", "a: str | int | None"),
         ("a: Union[Dict[str, int], None]", "a: Dict[str, int] | None"),
         ("a: typing.Union[int, None]", "a: int | None"),
-        ("a: Union[str, int]", "a: Union[str, int]"),
+        ("a: Union[str, int]", "a: str | int"),
+        ("a: Optional[int]", "a: int | None"),
         ("def func(a: Union[str, None]) -> Union[int, None]: pass", "def func(a: str | None) -> int | None: pass"),
+        ("def func(a: Optional[str]) -> Optional[int]: pass", "def func(a: str | None) -> int | None: pass"),
         ("var: Union[str, None] = 'hello'", "var: str | None = 'hello'"),
     ],
 )
 def test_union_to_pep604_transform(source_code, expected_code):
     ctx = CodemodContext(use_pep604=True)
-    assert apply(source_code, EnforceOptionallNoneTypes(ctx)) == expected_code
+    assert apply(source_code, EnforceOptionalNoneTypes(ctx)) == expected_code
 
 
 # ---------------------------------------------------------------------------
@@ -180,15 +182,15 @@ def test_pep604_removes_union_import_when_fully_rewritten():
     assert "from typing import Optional" not in result.transformed_code
 
 
-def test_pep604_keeps_union_import_when_still_used():
+def test_pep604_rewrites_plain_union_and_removes_union_import():
     source_code = "from typing import Union\n" "x: Union[int, None] = None\n" "y: Union[str, int]\n"
     ctx = CodemodContext(use_pep604=True)
     result = process_code(source_code, context=ctx)
 
     assert result.changed is True
     assert "x: int | None = None" in result.transformed_code
-    assert "y: Union[str, int]" in result.transformed_code
-    assert "from typing import Union" in result.transformed_code
+    assert "y: str | int" in result.transformed_code
+    assert "from typing import Union" not in result.transformed_code
 
 
 def test_pep604_process_code_infer():
@@ -253,14 +255,14 @@ def test_import_cleanup_removes_optional_import_in_pep604_mode_when_unused():
 
 
 def test_import_cleanup_keeps_optional_import_in_pep604_mode_when_still_used():
-    """Optional import stays if it is referenced in non-rewritten code."""
-    source = "from typing import Optional, Union\nx: Union[int, None] = None\ny: Optional[str]\n"
+    """Aliased Optional imports stay if they remain referenced after rewrites."""
+    source = "from typing import Optional as Opt, Union\nx: Union[int, None] = None\ny: Opt[str]\n"
     ctx = CodemodContext(use_pep604=True)
     result = process_code(source, context=ctx)
 
     assert "x: int | None = None" in result.transformed_code
-    assert "y: Optional[str]" in result.transformed_code
-    assert "Optional" in result.transformed_code
+    assert "y: Opt[str]" in result.transformed_code
+    assert "Optional as Opt" in result.transformed_code
 
 
 # ---------------------------------------------------------------------------
@@ -357,11 +359,45 @@ def test_iter_python_files_empty_extra_patterns_same_as_none(tmp_path):
     assert list(_iter_python_files(tmp_path)) == list(_iter_python_files(tmp_path, extra_ignore_patterns=[]))
 
 
+def test_iter_python_files_respects_gitignore(tmp_path):
+    kept = tmp_path / "src" / "a.py"
+    kept.parent.mkdir(parents=True)
+    kept.write_text("x: int = None\n", encoding="utf-8")
+
+    ignored = tmp_path / "generated" / "b.py"
+    ignored.parent.mkdir(parents=True)
+    ignored.write_text("y: int = None\n", encoding="utf-8")
+
+    (tmp_path / ".gitignore").write_text("generated/\n", encoding="utf-8")
+
+    assert list(_iter_python_files(tmp_path, respect_gitignore=True)) == [kept]
+
+
+def test_process_files_in_directory_respects_parent_gitignore(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+
+    scanned_dir = project / "pkg"
+    scanned_dir.mkdir()
+
+    kept = scanned_dir / "kept.py"
+    kept.write_text("x: int = None\n", encoding="utf-8")
+
+    ignored = scanned_dir / "ignored.py"
+    ignored.write_text("y: int = None\n", encoding="utf-8")
+
+    result = process_files_in_directory(scanned_dir, write=False, respect_gitignore=True)
+
+    assert result.processed_files == 1
+    assert result.changed_files == [kept]
+
+
 # ---------------------------------------------------------------------------
 # Version lookup
 # ---------------------------------------------------------------------------
 def test_version_lookup_uses_correct_distribution_name():
-    from typewriter import __version__, _DISTRIBUTION_NAME
+    from typewriter import _DISTRIBUTION_NAME, __version__
 
     assert _DISTRIBUTION_NAME == "py-typewriter-cli"
     # When installed, __version__ should be a non-empty string.
@@ -407,8 +443,6 @@ def test_docs_conf_version_matches_package_version():
     """The Sphinx conf.py version must equal the package version."""
     import re
     from pathlib import Path as _Path
-
-    from typewriter import __version__
 
     conf_path = _Path(__file__).resolve().parent.parent / "docs" / "source" / "conf.py"
     conf_text = conf_path.read_text(encoding="utf-8")

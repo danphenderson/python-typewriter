@@ -21,6 +21,7 @@ from libcst import (
     MaybeSentinel,
     Name,
     Param,
+    RemovalSentinel,
     RemoveFromParent,
     Subscript,
     SubscriptElement,
@@ -32,6 +33,7 @@ from libcst.codemod import ContextAwareTransformer as _Codemod
 from libcst.codemod.visitors import AddImportsVisitor
 from libcst.matchers import Name as mName
 from libcst.matchers import matches
+from pathspec import GitIgnoreSpec
 
 
 class CodemodContext(_CodemodContext):
@@ -45,7 +47,7 @@ class CodemodContext(_CodemodContext):
         super().__init__()
         self.code_modifications: List = []
         self.made_changes: bool = False
-        self.rewrote_union_none_annotation: bool = False
+        self.rewrote_union_annotation: bool = False
         self.use_pep604: bool = use_pep604
 
 
@@ -77,24 +79,31 @@ class Codemod(_Codemod):
         self.code_modifications.append(code_diff)
 
 
-class EnforceOptionallNoneTypes(Codemod):
-    """Rewrite `Union[..., None]` annotations into `Optional[...]` or PEP 604 unions.
+class EnforceOptionalNoneTypes(Codemod):
+    """Rewrite optional-style annotations into a normalized form.
 
-    For a union containing `None`, this transformation removes `None` and wraps the
-    remaining type(s):
+    Default mode (Python 3.9-compatible) only rewrites ``Union[..., None]`` forms:
 
-    Default mode (Python 3.9-compatible):
     - `Union[T, None]` -> `Optional[T]`
     - `Union[T1, T2, None]` -> `Optional[Union[T1, T2]]`
 
-    PEP 604 mode (Python 3.10+):
-    - `Union[T, None]` -> `T | None`
-    - `Union[T1, T2, None]` -> `T1 | T2 | None`
+    PEP 604 mode (Python 3.10+) normalizes both ``Optional[...]`` and ``Union[...]``:
 
-    Qualified references are preserved (for example, `typing.Union` -> `typing.Optional`).
+    - `Union[T, None]` -> `T | None`
+    - `Optional[T]` -> `T | None`
+    - `Union[T1, T2]` -> `T1 | T2`
+    - `Union[T1, T2, None]` -> `T1 | T2 | None`
     """
 
     def leave_Subscript(self, original_node: Subscript, updated_node: Subscript) -> BaseExpression:
+        if getattr(self.context, "use_pep604", False):
+            rewritten_node = self._rewrite_pep604_annotation(updated_node)
+            if rewritten_node is not None:
+                setattr(self.context, "made_changes", True)
+                if self._is_union_reference(updated_node.value):
+                    setattr(self.context, "rewrote_union_annotation", True)
+                return rewritten_node
+
         if not self._is_union_reference(updated_node.value):
             return updated_node
 
@@ -106,10 +115,7 @@ class EnforceOptionallNoneTypes(Codemod):
         remaining_union_elements = self._normalize_union_elements(remaining_union_elements)
 
         setattr(self.context, "made_changes", True)
-        setattr(self.context, "rewrote_union_none_annotation", True)
-
-        if getattr(self.context, "use_pep604", False):
-            return self._build_pep604_union(remaining_union_elements)
+        setattr(self.context, "rewrote_union_annotation", True)
 
         optional_reference = self._optional_reference_from_union_reference(updated_node.value)
         if len(remaining_union_elements) == 1:
@@ -125,20 +131,60 @@ class EnforceOptionallNoneTypes(Codemod):
             slice=[SubscriptElement(slice=Index(value=optional_inner_value))],
         )
 
-    def _build_pep604_union(self, remaining_elements: List[SubscriptElement]) -> BaseExpression:
-        """Build a PEP 604 union expression: ``T1 | T2 | None``."""
-        inner_values = [ensure_type(el.slice, Index).value for el in remaining_elements]
-        inner_values.append(Name("None"))
-        result: BaseExpression = inner_values[0]
-        for value in inner_values[1:]:
+    def _rewrite_pep604_annotation(self, updated_node: Subscript) -> Optional[BaseExpression]:
+        if self._is_union_reference(updated_node.value):
+            inner_values = [ensure_type(el.slice, Index).value for el in self._normalize_union_elements(updated_node.slice)]
+            return self._build_pep604_union(inner_values)
+
+        if self._is_optional_reference(updated_node.value):
+            if len(updated_node.slice) != 1:
+                return None
+            optional_inner_value = ensure_type(updated_node.slice[0].slice, Index).value
+            return self._build_pep604_union([optional_inner_value, Name("None")])
+
+        return None
+
+    def _build_pep604_union(self, values: Sequence[BaseExpression]) -> BaseExpression:
+        """Build a PEP 604 union expression from the provided values."""
+        flattened_values = self._flatten_pep604_values(values)
+        result: BaseExpression = flattened_values[0]
+        for value in flattened_values[1:]:
             result = BinaryOperation(left=result, operator=BitOr(), right=value)
         return result
+
+    def _flatten_pep604_values(self, values: Sequence[BaseExpression]) -> List[BaseExpression]:
+        flattened_values: List[BaseExpression] = []
+        saw_none = False
+
+        def visit(value: BaseExpression) -> None:
+            nonlocal saw_none
+            if isinstance(value, BinaryOperation) and isinstance(value.operator, BitOr):
+                visit(value.left)
+                visit(value.right)
+                return
+            if isinstance(value, Name) and value.value == "None":
+                if saw_none:
+                    return
+                saw_none = True
+            flattened_values.append(value)
+
+        for value in values:
+            visit(value)
+
+        return flattened_values
 
     def _is_union_reference(self, node: BaseExpression) -> bool:
         if isinstance(node, Name):
             return node.value == "Union"
         if isinstance(node, Attribute):
             return node.attr.value == "Union"
+        return False
+
+    def _is_optional_reference(self, node: BaseExpression) -> bool:
+        if isinstance(node, Name):
+            return node.value == "Optional"
+        if isinstance(node, Attribute):
+            return node.attr.value == "Optional"
         return False
 
     def _is_none_union_element(self, union_element: SubscriptElement) -> bool:
@@ -277,7 +323,43 @@ def _matches_any_pattern(path: str, patterns: Sequence[str]) -> bool:
     return any(fnmatch.fnmatch(path, pat) for pat in patterns)
 
 
-def _iter_python_files(directory_path: Path, extra_ignore_patterns: Optional[Sequence[str]] = None) -> Sequence[Path]:
+def _load_gitignore_spec(directory_path: Path) -> Optional[tuple[Path, GitIgnoreSpec]]:
+    for candidate in (directory_path, *directory_path.parents):
+        gitignore_path = candidate / ".gitignore"
+        if gitignore_path.is_file():
+            lines = gitignore_path.read_text(encoding="utf-8").splitlines()
+            return candidate, GitIgnoreSpec.from_lines(lines)
+    return None
+
+
+def _is_gitignored(
+    path: Path,
+    *,
+    directory_path: Path,
+    gitignore: Optional[tuple[Path, GitIgnoreSpec]],
+    is_directory: bool,
+) -> bool:
+    if gitignore is None:
+        return False
+
+    gitignore_root, gitignore_spec = gitignore
+    if not path.is_relative_to(gitignore_root):
+        return False
+
+    relative_path = path.relative_to(gitignore_root).as_posix()
+    if path == directory_path:
+        relative_path = "."
+    if is_directory and relative_path != ".":
+        relative_path = f"{relative_path}/"
+    return gitignore_spec.match_file(relative_path)
+
+
+def _iter_python_files(
+    directory_path: Path,
+    extra_ignore_patterns: Optional[Sequence[str]] = None,
+    *,
+    respect_gitignore: bool = False,
+) -> Sequence[Path]:
     """Walk *directory_path* and yield all ``*.py`` files.
 
     Directories in :data:`SKIP_DIRECTORY_NAMES` are always skipped.  When
@@ -289,28 +371,47 @@ def _iter_python_files(directory_path: Path, extra_ignore_patterns: Optional[Seq
     ``src/vendor/``.  Use forward slashes in patterns; ``fnmatch`` treats them as
     literal characters, which matches how :class:`pathlib.Path` serializes on all
     platforms.
+    When *respect_gitignore* is true, the nearest ``.gitignore`` at or above the
+    scanned directory is also applied.
     """
     ignore_patterns: Sequence[str] = list(extra_ignore_patterns) if extra_ignore_patterns else []
+    gitignore = _load_gitignore_spec(directory_path) if respect_gitignore else None
     python_files: List[Path] = []
     for root, dirs, files in os.walk(directory_path):
         filtered_dirs: List[str] = []
         for directory_name in sorted(dirs):
+            directory_candidate = Path(root) / directory_name
             if directory_name in SKIP_DIRECTORY_NAMES:
                 continue
+            if _is_gitignored(
+                directory_candidate,
+                directory_path=directory_path,
+                gitignore=gitignore,
+                is_directory=True,
+            ):
+                continue
             if ignore_patterns:
-                rel_dir = str(Path(root, directory_name).relative_to(directory_path))
+                rel_dir = str(directory_candidate.relative_to(directory_path))
                 if _matches_any_pattern(directory_name, ignore_patterns) or _matches_any_pattern(rel_dir, ignore_patterns):
                     continue
             filtered_dirs.append(directory_name)
         dirs[:] = filtered_dirs
         for file_name in sorted(files):
+            file_path = Path(root) / file_name
             if not file_name.endswith(".py"):
                 continue
+            if _is_gitignored(
+                file_path,
+                directory_path=directory_path,
+                gitignore=gitignore,
+                is_directory=False,
+            ):
+                continue
             if ignore_patterns:
-                rel_file = str(Path(root, file_name).relative_to(directory_path))
+                rel_file = str(file_path.relative_to(directory_path))
                 if _matches_any_pattern(file_name, ignore_patterns) or _matches_any_pattern(rel_file, ignore_patterns):
                     continue
-            python_files.append(Path(root) / file_name)
+            python_files.append(file_path)
     return python_files
 
 
@@ -340,7 +441,7 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
     of ``Optional[...]``.
     """
     context = _parse_context(context)
-    code = apply(code, EnforceOptionallNoneTypes(context))
+    code = apply(code, EnforceOptionalNoneTypes(context))
     code = apply(code, InferOptionalNoneTypes(context))
     code = apply(code, AddImportsVisitor(context))
     return _cleanup_typing_imports(code, context)
@@ -348,7 +449,7 @@ def apply_all(code: str, context: Optional[Union[CodemodContext, Dict[str, Union
 
 def _cleanup_typing_imports(code: str, context: CodemodContext) -> str:
     """Remove ``typing`` imports that are now unused after rewrites."""
-    if getattr(context, "rewrote_union_none_annotation", False):
+    if getattr(context, "rewrote_union_annotation", False):
         code = _remove_typing_import_if_unused(code, "Union")
     # In PEP 604 mode, inference-only rewrites can make an existing Optional import
     # unused even when no Union[...] annotation was rewritten. Gate this on actual
@@ -389,7 +490,7 @@ class _TypingNameImportRemover(CSTTransformer):
         self,
         original_node: ImportFrom,
         updated_node: ImportFrom,
-    ) -> Union[ImportFrom, RemoveFromParent]:
+    ) -> Union[ImportFrom, RemovalSentinel]:
         module = updated_node.module
         if not isinstance(module, Name) or module.value != "typing":
             return updated_node
@@ -425,6 +526,9 @@ def _remove_typing_import_if_unused(code: str, name: str) -> str:
         return code
 
     return module.visit(_TypingNameImportRemover(name)).code
+
+
+EnforceOptionallNoneTypes = EnforceOptionalNoneTypes
 
 
 @dataclass(frozen=True)
@@ -515,17 +619,24 @@ def process_files_in_directory(
     include_diff: bool = False,
     context: Optional[Union[CodemodContext, Dict[str, Union[bool, List]]]] = None,
     extra_ignore_patterns: Optional[Sequence[str]] = None,
+    respect_gitignore: bool = False,
 ) -> ProcessResult:
     """Transform all Python files under a directory.
 
     Recursively walks the directory, skipping common virtualenv/cache/build folders.
     Additional skip patterns can be supplied via *extra_ignore_patterns*.
+    When *respect_gitignore* is true, the nearest ``.gitignore`` at or above the
+    scanned directory is also applied.
     """
     changed_files: List[Path] = []
     processed_files = 0
     diffs: Dict[Path, str] = {}
 
-    for file_path in _iter_python_files(directory_path, extra_ignore_patterns=extra_ignore_patterns):
+    for file_path in _iter_python_files(
+        directory_path,
+        extra_ignore_patterns=extra_ignore_patterns,
+        respect_gitignore=respect_gitignore,
+    ):
         result = process_file(file_path, write=write, include_diff=include_diff, context=context)
         processed_files += result.processed_files
         changed_files.extend(result.changed_files)

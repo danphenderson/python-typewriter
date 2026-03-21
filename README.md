@@ -28,6 +28,10 @@ With `--target-version 3.10` (PEP 604 mode):
 ```python
 Union[T, None] -> T | None
 
+Optional[T] -> T | None
+
+Union[T1, T2] -> T1 | T2
+
 Union[T1, T2, None] -> T1 | T2 | None
 
 x: T = None -> x: T | None = None
@@ -100,6 +104,8 @@ To emit `T | None` style unions instead of `Optional[T]`, pass `--target-version
 ```bash
 typewriter run path/to/example.py --target-version 3.10
 ```
+In this mode, existing `Optional[...]` and `Union[...]` annotations are normalized to
+PEP 604 syntax too.
 The default output remains Python 3.9-compatible (`Optional[T]`).
 
 #### Skip configuration
@@ -110,6 +116,11 @@ typewriter run myproject --ignore "test_*" --ignore "generated"
 Patterns are matched against both the bare file/directory name **and** the relative
 path from the scanned root.  The built-in skip set (`.git`, `.venv`, `__pycache__`,
 `build`, `dist`, etc.) is always active regardless of extra patterns.
+
+To also honor the nearest `.gitignore` at or above the scanned directory:
+```bash
+typewriter run myproject --respect-gitignore
+```
 
 #### Additional Details:
 - `PATH` and `--code` are mutually exclusive.

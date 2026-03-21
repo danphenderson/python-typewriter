@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import importlib.metadata as importlib_metadata
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 _DISTRIBUTION_NAME = "py-typewriter-cli"
 _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
