@@ -444,6 +444,30 @@ def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(
     assert typewriter._resolve_version() == "0.0.0"
 
 
+def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
+    import builtins
+
+    import typewriter
+
+    class FakeTomli:
+        @staticmethod
+        def load(_file_obj):
+            return {"project": {"version": "1.0.0"}}
+
+    original_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "tomllib":
+            raise ModuleNotFoundError("No module named 'tomllib'")
+        if name == "tomli":
+            return FakeTomli
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    assert typewriter._load_toml_parser() is FakeTomli
+
+
 # ---------------------------------------------------------------------------
 # Docs version sourcing
 # ---------------------------------------------------------------------------
