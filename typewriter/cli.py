@@ -61,7 +61,7 @@ def run(
     target_version: Optional[str] = typer.Option(
         None,
         "--target-version",
-        help=("Target Python version (e.g. '3.10'). " "Python 3.10+ enables PEP 604 union syntax (T | None) instead of Optional[T]."),
+        help="Target Python version (e.g. '3.10'). Python 3.10+ enables PEP 604 union syntax (T | None) instead of Optional[T].",
     ),
     ignore: Optional[List[str]] = typer.Option(
         None,

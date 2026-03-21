@@ -164,6 +164,8 @@ class EnforceOptionalNoneTypes(Codemod):
                 visit(value.right)
                 return
             if isinstance(value, Name) and value.value == "None":
+                # Avoid emitting ``... | None | None`` when an Optional wraps an
+                # annotation that already contains ``None``.
                 if saw_none:
                     return
                 saw_none = True
@@ -348,6 +350,8 @@ def _is_gitignored(
         return False
 
     relative_path = path.relative_to(gitignore_root).as_posix()
+    # Git ignore patterns treat the scanned root as ``.`` when the path being
+    # checked is exactly the directory we started from.
     if path == directory_path:
         relative_path = "."
     if is_directory and relative_path != ".":
