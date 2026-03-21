@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import warnings
 from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
@@ -528,7 +529,16 @@ def _remove_typing_import_if_unused(code: str, name: str) -> str:
     return module.visit(_TypingNameImportRemover(name)).code
 
 
-EnforceOptionallNoneTypes = EnforceOptionalNoneTypes
+class EnforceOptionallNoneTypes(EnforceOptionalNoneTypes):
+    """Deprecated compatibility wrapper for the misspelled class name."""
+
+    def __init__(self, context: Optional[CodemodContext] = None) -> None:
+        warnings.warn(
+            "EnforceOptionallNoneTypes is deprecated; use EnforceOptionalNoneTypes instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(context)
 
 
 @dataclass(frozen=True)

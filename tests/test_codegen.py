@@ -254,7 +254,7 @@ def test_import_cleanup_removes_optional_import_in_pep604_mode_when_unused():
     assert "Optional" not in result.transformed_code
 
 
-def test_import_cleanup_keeps_optional_import_in_pep604_mode_when_still_used():
+def test_import_cleanup_keeps_aliased_optional_import_in_pep604_mode():
     """Aliased Optional imports stay if they remain referenced after rewrites."""
     source = "from typing import Optional as Opt, Union\nx: Union[int, None] = None\ny: Opt[str]\n"
     ctx = CodemodContext(use_pep604=True)
@@ -449,6 +449,7 @@ def test_docs_conf_version_matches_package_version():
 
     # The conf.py should import version from typewriter (not hard-code it)
     assert "from typewriter import __version__" in conf_text or "from typewriter import" in conf_text
+    assert "version = release = _pkg_version" in conf_text
     # It should NOT contain a hard-coded version string assignment like version = '0.1.0'
     hard_coded = re.search(r"^version\s*=\s*release\s*=\s*['\"][\d.]+['\"]", conf_text, re.MULTILINE)
     assert hard_coded is None, f"Docs conf.py has hard-coded version: {hard_coded.group()}"
