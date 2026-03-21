@@ -456,12 +456,12 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
 
     original_import = builtins.__import__
 
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+    def fake_import(name, globals_dict=None, locals_dict=None, fromlist=(), level=0):
         if name == "tomllib":
             raise ModuleNotFoundError("No module named 'tomllib'")
         if name == "tomli":
             return FakeTomli
-        return original_import(name, globals, locals, fromlist, level)
+        return original_import(name, globals_dict, locals_dict, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
 

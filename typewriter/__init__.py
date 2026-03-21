@@ -9,6 +9,7 @@ _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 
 def _load_toml_parser() -> Any:
+    """Return the TOML parser module available for the current Python version."""
     try:
         import tomllib
 
