@@ -13,7 +13,7 @@ from typewriter.codemod import (
 )
 
 
-def _parse_target_version(value: Optional[str]) -> bool:
+def _supports_pep604(value: Optional[str]) -> bool:
     """Return *True* when *value* indicates Python 3.10+ (PEP 604 unions)."""
     if value is None:
         return False
@@ -30,7 +30,7 @@ def _parse_target_version(value: Optional[str]) -> bool:
 
 
 def _resolve_use_pep604(*, target_version: Optional[str], use_pep604: Optional[bool]) -> bool:
-    derived_use_pep604 = None if target_version is None else _parse_target_version(target_version)
+    derived_use_pep604 = None if target_version is None else _supports_pep604(target_version)
     if use_pep604 is None:
         return derived_use_pep604 if derived_use_pep604 is not None else False
     if derived_use_pep604 is not None and derived_use_pep604 != use_pep604:

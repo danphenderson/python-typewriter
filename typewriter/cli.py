@@ -7,7 +7,7 @@ import click
 import typer
 
 from typewriter.codemod import ProcessResult, ProcessStringResult
-from typewriter.runner import TypewriterRunner, _parse_target_version
+from typewriter.runner import TypewriterRunner, _supports_pep604
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
@@ -136,7 +136,7 @@ def run(
     Use `--respect-gitignore` to also skip files ignored by Git.
     """
     try:
-        use_pep604 = _parse_target_version(target_version)
+        use_pep604 = _supports_pep604(target_version)
         typewriter_runner = TypewriterRunner(
             target_version=target_version,
             ignore=ignore,
