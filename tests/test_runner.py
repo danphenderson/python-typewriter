@@ -10,6 +10,13 @@ def test_runner_process_code_uses_target_version_for_pep604_output():
     assert "value: int | None = None" in result.transformed_code
 
 
+def test_runner_process_code_accepts_compact_target_version_for_pep604_output():
+    result = TypewriterRunner(target_version="py310").process_code("value: int = None\n")
+
+    assert result.changed is True
+    assert "value: int | None = None" in result.transformed_code
+
+
 def test_runner_process_file_can_collect_diff_without_writing(tmp_path):
     file_path = tmp_path / "example.py"
     original_code = "value: int = None\n"
@@ -44,3 +51,10 @@ def test_runner_process_directory_uses_ignore_and_gitignore(tmp_path):
 def test_runner_rejects_conflicting_target_version_and_use_pep604():
     with pytest.raises(ValueError, match="must agree"):
         TypewriterRunner(target_version="3.9", use_pep604=True)
+
+
+def test_runner_allows_explicit_use_pep604_without_target_version():
+    result = TypewriterRunner(use_pep604=True).process_code("value: int = None\n")
+
+    assert result.changed is True
+    assert "value: int | None = None" in result.transformed_code

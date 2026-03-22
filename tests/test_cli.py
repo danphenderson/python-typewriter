@@ -1,7 +1,11 @@
 import json
+import subprocess
+import sys
 
+import click
 from typer.testing import CliRunner
 
+from typewriter import cli as cli_module
 from typewriter.cli import app
 
 runner = CliRunner()
@@ -164,6 +168,16 @@ def test_run_code_json_check_output_contains_diff_and_preserves_exit_code():
     assert "transformed_code" not in payload
 
 
+def test_run_code_json_check_output_clean_returns_zero_without_diff():
+    result = runner.invoke(app, ["run", "--code", "var: Optional[int] = None\n", "--check", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["type"] == "code"
+    assert payload["changed"] is False
+    assert "diff" not in payload
+
+
 # ---------------------------------------------------------------------------
 # --target-version
 # ---------------------------------------------------------------------------
@@ -231,6 +245,19 @@ def test_run_directory_json_output_contains_changed_files_and_diffs(tmp_path):
     assert payload["changed_count"] == 1
     assert payload["changed_files"] == [str(file_path)]
     assert file_path.as_posix() in payload["diffs"]
+
+
+def test_run_directory_json_output_clean_returns_zero_without_diffs(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("var: Optional[int] = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["type"] == "directory"
+    assert payload["changed_count"] == 0
+    assert "diffs" not in payload
 
 
 # ---------------------------------------------------------------------------
@@ -305,3 +332,97 @@ def test_run_json_errors_are_emitted_to_stderr():
     payload = json.loads(result.stderr)
     assert payload["type"] == "error"
     assert "Invalid target version" in payload["error"]
+
+
+def test_run_json_error_is_emitted_when_path_and_code_are_both_provided(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(file_path), "--code", "var: int = None\n", "--output-format", "json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Provide either PATH or --code" in payload["error"]
+
+
+def test_run_json_error_is_emitted_when_path_or_code_is_missing():
+    result = runner.invoke(app, ["run", "--output-format", "json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stderr)
+    assert payload == {"error": "either PATH or --code must be provided.", "type": "error"}
+
+
+def test_run_json_error_is_emitted_for_non_python_files(tmp_path):
+    file_path = tmp_path / "example.txt"
+    file_path.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(file_path), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Only '.py' files are supported." in payload["error"]
+
+
+def test_run_json_error_is_emitted_for_click_exceptions(monkeypatch):
+    def raise_click_exception(*args, **kwargs):
+        raise click.ClickException("boom")
+
+    monkeypatch.setattr(cli_module.TypewriterRunner, "process_code", raise_click_exception)
+
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--output-format", "json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stderr)
+    assert payload == {"error": "boom", "type": "error"}
+
+
+def test_run_text_error_is_emitted_for_click_exceptions(monkeypatch):
+    def raise_click_exception(*args, **kwargs):
+        raise click.ClickException("boom")
+
+    monkeypatch.setattr(cli_module.TypewriterRunner, "process_code", raise_click_exception)
+
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n"])
+
+    assert result.exit_code == 1
+    assert "boom" in result.output
+
+
+def test_run_json_error_is_emitted_for_unexpected_exceptions(monkeypatch):
+    def raise_runtime_error(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli_module.TypewriterRunner, "process_code", raise_runtime_error)
+
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--output-format", "json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stderr)
+    assert payload == {"error": "boom", "type": "error"}
+
+
+def test_run_text_error_is_emitted_for_unexpected_exceptions(monkeypatch):
+    def raise_runtime_error(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli_module.TypewriterRunner, "process_code", raise_runtime_error)
+
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n"])
+
+    assert result.exit_code == 2
+    assert "Error: boom" in result.output
+
+
+def test_cli_module_supports_python_dash_m_invocation():
+    result = subprocess.run(
+        [sys.executable, "-m", "typewriter.cli", "run", "--code", "var: int = None\n"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Optional[int]" in result.stdout
