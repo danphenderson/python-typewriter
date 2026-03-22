@@ -4,6 +4,8 @@ import importlib.metadata as importlib_metadata
 from pathlib import Path
 from typing import Any
 
+from typewriter.runner import TypewriterRunner
+
 _DISTRIBUTION_NAME = "py-typewriter-cli"
 _PYPROJECT_PATH = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
@@ -46,3 +48,5 @@ def _resolve_version() -> str:
 
 
 __version__ = _resolve_version()
+
+__all__ = ["TypewriterRunner", "__version__"]

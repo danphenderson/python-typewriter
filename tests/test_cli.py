@@ -1,3 +1,5 @@
+import json
+
 from typer.testing import CliRunner
 
 from typewriter.cli import app
@@ -141,6 +143,27 @@ def test_run_code_check_returns_zero_when_no_changes_needed():
     assert "No changes." in result.output
 
 
+def test_run_code_json_output_contains_transformed_code():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["type"] == "code"
+    assert payload["changed"] is True
+    assert "Optional[int]" in payload["transformed_code"]
+
+
+def test_run_code_json_check_output_contains_diff_and_preserves_exit_code():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--check", "--output-format", "json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["type"] == "code"
+    assert payload["changed"] is True
+    assert "--- provided" in payload["diff"]
+    assert "transformed_code" not in payload
+
+
 # ---------------------------------------------------------------------------
 # --target-version
 # ---------------------------------------------------------------------------
@@ -194,6 +217,20 @@ def test_run_code_with_target_version_310_normalizes_optional_and_union():
     assert "y: str | int" in result.output
     assert "Optional" not in result.output
     assert "Union" not in result.output
+
+
+def test_run_directory_json_output_contains_changed_files_and_diffs(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("var: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(tmp_path), "--check", "--output-format", "json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["type"] == "directory"
+    assert payload["changed_count"] == 1
+    assert payload["changed_files"] == [str(file_path)]
+    assert file_path.as_posix() in payload["diffs"]
 
 
 # ---------------------------------------------------------------------------
@@ -259,3 +296,12 @@ def test_run_respect_gitignore_skips_ignored_files(tmp_path):
     assert result.exit_code == 1
     assert "1 file(s) would be transformed." in result.output
     assert "generated.py" not in result.output
+
+
+def test_run_json_errors_are_emitted_to_stderr():
+    result = runner.invoke(app, ["run", "--code", "var: int = None\n", "--target-version", "abc", "--output-format", "json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Invalid target version" in payload["error"]

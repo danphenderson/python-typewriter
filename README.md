@@ -129,6 +129,104 @@ typewriter run myproject --respect-gitignore
 common non-source subdirectories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.
 - PEP 604 syntax (`T | None`) is opt-in via `--target-version 3.10` and is not used by default.
 
+## Recommended workflows
+
+### Using Typewriter in CI
+
+Use `--check` in CI when you want Typewriter to fail the job if a pull request still
+contains `None`-related typing rewrites that should be applied:
+
+```bash
+typewriter run . --check --respect-gitignore
+```
+
+Exit codes in CI-friendly `--check` mode are:
+
+- `0`: the scanned files are already normalized
+- `1`: Typewriter found rewrites it would apply
+- `2`: Typewriter hit an error
+
+For bots and automation, switch to machine-readable output:
+
+```bash
+typewriter run . --check --respect-gitignore --output-format json
+```
+
+A minimal GitHub Actions step looks like this:
+
+```yaml
+- name: Check None-related typing annotations
+  run: typewriter run . --check --respect-gitignore
+```
+
+### Using Typewriter with pre-commit
+
+Typewriter currently accepts a single path per invocation, so the simplest pre-commit
+integration is a local hook that scans the repository root:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: typewriter
+        name: typewriter
+        entry: typewriter run .
+        language: system
+        pass_filenames: false
+```
+
+That hook applies changes in place. Pair it with a CI `--check` run so contributors see
+the same normalization rules locally and in pull requests.
+
+### Check vs apply
+
+- `typewriter run . --check` previews diffs, leaves files untouched, and exits with `1`
+  when changes are needed.
+- `typewriter run .` applies the same rewrites in place and exits with `0` when it
+  completes successfully.
+
+Use `--check` in CI, editor integrations, and review bots. Use apply mode in local
+cleanup workflows or scripted codemod runs.
+
+### Ignore rules and Git ignore support
+
+Use `--ignore` for paths that should always stay out of scope for a Typewriter run:
+
+```bash
+typewriter run . --check --ignore "generated" --ignore "test_*"
+```
+
+Those patterns are matched against both bare names and paths relative to the scanned
+directory. `--respect-gitignore` is complementary: it applies the nearest `.gitignore`
+at or above the scanned directory, which is helpful in monorepos and CI jobs that scan
+from a package subdirectory.
+
+### Choosing between Optional[...] and T | None
+
+By default, Typewriter emits `Optional[...]` so the output stays compatible with Python
+3.9 codebases. Use `--target-version 3.10` (or any 3.10+ target) when your project is
+already standardized on PEP 604 unions and you want Typewriter to normalize existing
+`Optional[...]` and `Union[...]` annotations to `T | None` as well:
+
+```bash
+typewriter run path/to/example.py --target-version 3.10
+```
+
+## Scope and non-goals
+
+Typewriter intentionally focuses on one narrow kind of codemod: normalizing
+`None`-related type annotations.
+
+It does not try to:
+
+- perform broad typing cleanup outside the current `None`-focused rewrite rules,
+- rewrite docstrings or narrative documentation,
+- infer business meaning beyond the syntax-driven codemod rules,
+- replace a full linting, formatting, or static-analysis workflow.
+
+If you need larger typing migrations, use Typewriter as one step in a broader toolchain
+instead of expecting it to infer project-wide intent.
+
 ### Versioning
 The package version is the single source of truth. The documentation version in
 `docs/source/conf.py` is derived automatically from `typewriter.__version__`, which
