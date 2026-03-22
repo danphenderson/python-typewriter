@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import click
@@ -10,6 +10,7 @@ from typewriter.codemod import ProcessResult, ProcessStringResult
 from typewriter.runner import TypewriterRunner, _parse_target_version
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
+
 
 class OutputFormat(str, Enum):
     TEXT = "text"
