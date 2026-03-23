@@ -506,4 +506,4 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
 
     readthedocs_text = readthedocs_path.read_text(encoding="utf-8")
     assert re.search(r"mkdocs:\s*\n\s*configuration:\s*mkdocs\.yml\b", readthedocs_text)
-    assert re.search(r"extra_requirements:\s*\n(?:\s*-\s*docs\b.*\n?)+", readthedocs_text)
+    assert re.search(r"extra_requirements:\s*\n\s*-\s*docs\b", readthedocs_text)
