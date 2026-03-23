@@ -488,6 +488,7 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
 # ---------------------------------------------------------------------------
 def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     """The repository should keep MkDocs source docs and RTD config in sync."""
+    import re
     from pathlib import Path as _Path
 
     repo_root = _Path(__file__).resolve().parent.parent
@@ -500,10 +501,9 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     assert not (repo_root / "docs" / "source").exists()
 
     mkdocs_text = mkdocs_path.read_text(encoding="utf-8")
-    assert "theme:\n  name: material\n" in mkdocs_text
-    assert "nav:\n  - Home: index.md\n" in mkdocs_text
+    assert re.search(r"theme:\s*\n\s*name:\s*material\b", mkdocs_text)
+    assert re.search(r"nav:\s*\n\s*-\s*Home:\s*index\.md\b", mkdocs_text)
 
     readthedocs_text = readthedocs_path.read_text(encoding="utf-8")
-    assert "mkdocs:\n  configuration: mkdocs.yml\n" in readthedocs_text
-    assert "extra_requirements:" in readthedocs_text
-    assert "- docs" in readthedocs_text
+    assert re.search(r"mkdocs:\s*\n\s*configuration:\s*mkdocs\.yml\b", readthedocs_text)
+    assert re.search(r"extra_requirements:\s*\n(?:\s*-\s*docs\b.*\n?)+", readthedocs_text)
