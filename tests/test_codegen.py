@@ -502,9 +502,9 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     assert not (repo_root / "docs" / "source").exists()
 
     mkdocs_text = mkdocs_path.read_text(encoding="utf-8")
-    assert re.search(r"theme:\s*\n\s*name:\s*material\b", mkdocs_text), "MkDocs theme should be set to material"
-    assert re.search(r"nav:\s*\n\s*-\s*Home:\s*index\.md\b", mkdocs_text), "MkDocs nav should include Home -> index.md"
+    assert re.search(r"theme:\s+name:\s*material\b", mkdocs_text), "MkDocs theme should be set to material"
+    assert re.search(r"nav:\s+-\s*Home:\s*index\.md\b", mkdocs_text), "MkDocs nav should include Home -> index.md"
 
     readthedocs_text = readthedocs_path.read_text(encoding="utf-8")
-    assert re.search(r"mkdocs:\s*\n\s*configuration:\s*mkdocs\.yml\b", readthedocs_text), "Read the Docs should build from mkdocs.yml"
-    assert re.search(r"extra_requirements:\s*\n\s*-\s*docs\b", readthedocs_text), "Read the Docs install should include the docs extra"
+    assert re.search(r"mkdocs:\s+configuration:\s*mkdocs\.yml\b", readthedocs_text), "Read the Docs should build from mkdocs.yml"
+    assert re.search(r"extra_requirements:\s+-\s*docs\b", readthedocs_text), "Read the Docs install should include the docs extra"
