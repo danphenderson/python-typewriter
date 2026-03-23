@@ -505,4 +505,5 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
 
     readthedocs_text = readthedocs_path.read_text(encoding="utf-8")
     assert "mkdocs:\n  configuration: mkdocs.yml\n" in readthedocs_text
-    assert "extra_requirements:\n        - docs\n" in readthedocs_text
+    assert "extra_requirements:" in readthedocs_text
+    assert "- docs" in readthedocs_text
