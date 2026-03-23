@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from typewriter.codemod import (
@@ -488,7 +490,6 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
 # ---------------------------------------------------------------------------
 def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     """The repository should keep MkDocs source docs and RTD config in sync."""
-    import re
     from pathlib import Path as _Path
 
     repo_root = _Path(__file__).resolve().parent.parent
