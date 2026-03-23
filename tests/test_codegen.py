@@ -484,19 +484,27 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Docs version sourcing
+# Docs configuration
 # ---------------------------------------------------------------------------
-def test_docs_conf_version_matches_package_version():
-    """The Sphinx conf.py version must equal the package version."""
-    import re
+def test_docs_configuration_uses_mkdocs_and_read_the_docs():
+    """The repository should keep MkDocs source docs and RTD config in sync."""
     from pathlib import Path as _Path
 
-    conf_path = _Path(__file__).resolve().parent.parent / "docs" / "source" / "conf.py"
-    conf_text = conf_path.read_text(encoding="utf-8")
+    import yaml
 
-    # The conf.py should import version from typewriter (not hard-code it)
-    assert "from typewriter import __version__" in conf_text or "from typewriter import" in conf_text
-    assert "version = release = _pkg_version" in conf_text
-    # It should NOT contain a hard-coded version string assignment like version = '0.1.0'
-    hard_coded = re.search(r"^version\s*=\s*release\s*=\s*['\"][\d.]+['\"]", conf_text, re.MULTILINE)
-    assert hard_coded is None, f"Docs conf.py has hard-coded version: {hard_coded.group()}"
+    repo_root = _Path(__file__).resolve().parent.parent
+
+    mkdocs_path = repo_root / "mkdocs.yml"
+    readthedocs_path = repo_root / ".readthedocs.yaml"
+
+    assert mkdocs_path.exists()
+    assert readthedocs_path.exists()
+    assert not (repo_root / "docs" / "source").exists()
+
+    mkdocs_config = yaml.safe_load(mkdocs_path.read_text(encoding="utf-8"))
+    assert mkdocs_config["theme"]["name"] == "material"
+    assert mkdocs_config["nav"][0] == {"Home": "index.md"}
+
+    readthedocs_config = yaml.safe_load(readthedocs_path.read_text(encoding="utf-8"))
+    assert readthedocs_config["mkdocs"]["configuration"] == "mkdocs.yml"
+    assert readthedocs_config["python"]["install"][0]["extra_requirements"] == ["docs"]
