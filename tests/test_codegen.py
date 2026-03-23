@@ -490,8 +490,6 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     """The repository should keep MkDocs source docs and RTD config in sync."""
     from pathlib import Path as _Path
 
-    import yaml
-
     repo_root = _Path(__file__).resolve().parent.parent
 
     mkdocs_path = repo_root / "mkdocs.yml"
@@ -501,10 +499,10 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     assert readthedocs_path.exists()
     assert not (repo_root / "docs" / "source").exists()
 
-    mkdocs_config = yaml.safe_load(mkdocs_path.read_text(encoding="utf-8"))
-    assert mkdocs_config["theme"]["name"] == "material"
-    assert mkdocs_config["nav"][0] == {"Home": "index.md"}
+    mkdocs_text = mkdocs_path.read_text(encoding="utf-8")
+    assert "theme:\n  name: material\n" in mkdocs_text
+    assert "nav:\n  - Home: index.md\n" in mkdocs_text
 
-    readthedocs_config = yaml.safe_load(readthedocs_path.read_text(encoding="utf-8"))
-    assert readthedocs_config["mkdocs"]["configuration"] == "mkdocs.yml"
-    assert readthedocs_config["python"]["install"][0]["extra_requirements"] == ["docs"]
+    readthedocs_text = readthedocs_path.read_text(encoding="utf-8")
+    assert "mkdocs:\n  configuration: mkdocs.yml\n" in readthedocs_text
+    assert "extra_requirements:\n        - docs\n" in readthedocs_text
