@@ -1,0 +1,32 @@
+site_name: Typewriter
+site_description: Versioned documentation for the Typewriter CLI
+site_url: https://python-typewriter.readthedocs.io/en/latest/
+repo_url: https://github.com/danphenderson/python-typewriter
+repo_name: danphenderson/python-typewriter
+edit_uri: edit/main/docs/
+strict: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Usage: usage.md
+  - Behavior: behavior.md
+  - Motivation: motivation.md
+  - API reference: api.md
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true

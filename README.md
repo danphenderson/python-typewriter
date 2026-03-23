@@ -1,6 +1,6 @@
 # Typewriter
 
-[![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](https://danphenderson.github.io/python-typewriter/)
+[![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](https://python-typewriter.readthedocs.io/en/latest/)
 [![GitHub Actions Build Status](https://github.com/danphenderson/python-typewriter/actions/workflows/CI.yml/badge.svg)](https://github.com/danphenderson/python-typewriter/actions)
 [![Coveralls](https://coveralls.io/repos/github/danphenderson/python-typewriter/badge.svg?branch=main)](https://coveralls.io/github/danphenderson/python-typewriter?branch=main)
 [![Codecov](https://codecov.io/gh/danphenderson/python-typewriter/graph/badge.svg?branch=main)](https://codecov.io/gh/danphenderson/python-typewriter)
@@ -8,6 +8,8 @@
 [![PyPI Wheel](https://img.shields.io/pypi/wheel/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 [![Supported versions](https://img.shields.io/pypi/pyversions/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 [![Supported implementations](https://img.shields.io/pypi/implementation/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
+
+Full documentation is hosted on Read the Docs at <https://python-typewriter.readthedocs.io/en/latest/>. The hosted site publishes the default branch as `latest` and tagged releases as versioned docs.
 
 ## Overview
 
