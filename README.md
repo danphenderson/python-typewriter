@@ -1,6 +1,6 @@
 # Typewriter
 
-[![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](https://github.com/danphenderson/python-typewriter/blob/main/docs/index.md)
+[![Documentation Status](https://readthedocs.org/projects/python-typewriter/badge/?style=flat)](docs/index.md)
 [![GitHub Actions Build Status](https://github.com/danphenderson/python-typewriter/actions/workflows/CI.yml/badge.svg)](https://github.com/danphenderson/python-typewriter/actions)
 [![Coveralls](https://coveralls.io/repos/github/danphenderson/python-typewriter/badge.svg?branch=main)](https://coveralls.io/github/danphenderson/python-typewriter?branch=main)
 [![Codecov](https://codecov.io/gh/danphenderson/python-typewriter/graph/badge.svg?branch=main)](https://codecov.io/gh/danphenderson/python-typewriter)
@@ -9,7 +9,7 @@
 [![Supported versions](https://img.shields.io/pypi/pyversions/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 [![Supported implementations](https://img.shields.io/pypi/implementation/py-typewriter-cli.svg)](https://pypi.org/project/py-typewriter-cli)
 
-Full documentation is available in the repository at <https://github.com/danphenderson/python-typewriter/blob/main/docs/index.md>.
+Full documentation is available in the repository at [docs/index.md](docs/index.md).
 
 ## Overview
 

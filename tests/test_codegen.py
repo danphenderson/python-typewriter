@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import pytest
 
@@ -490,9 +491,7 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
 # ---------------------------------------------------------------------------
 def test_docs_configuration_uses_mkdocs_and_read_the_docs():
     """The repository should keep MkDocs source docs and RTD config in sync."""
-    from pathlib import Path as _Path
-
-    repo_root = _Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent
 
     mkdocs_path = repo_root / "mkdocs.yml"
     readthedocs_path = repo_root / ".readthedocs.yaml"
@@ -512,16 +511,22 @@ def test_docs_configuration_uses_mkdocs_and_read_the_docs():
 
 def test_readme_docs_links_point_to_existing_repository_docs():
     """README documentation links should point to the in-repository docs landing page."""
-    from pathlib import Path as _Path
-
-    repo_root = _Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent
     readme_path = repo_root / "README.md"
     docs_index_path = repo_root / "docs" / "index.md"
 
     assert docs_index_path.exists()
 
     readme_text = readme_path.read_text(encoding="utf-8")
-    docs_url = "https://github.com/danphenderson/python-typewriter/blob/main/docs/index.md"
+    docs_link = "docs/index.md"
 
-    assert f"]({docs_url})" in readme_text, "README docs badge should link to the repository docs index"
-    assert f"<{docs_url}>" in readme_text, "README docs text should link to the repository docs index"
+    assert re.search(
+        rf"^\[!\[Documentation Status\]\([^)]+\)\]\({re.escape(docs_link)}\)$",
+        readme_text,
+        flags=re.MULTILINE,
+    ), "README docs badge should link to the repository docs index"
+    assert re.search(
+        rf"^Full documentation is available in the repository at \[docs/index\.md\]\({re.escape(docs_link)}\)\.$",
+        readme_text,
+        flags=re.MULTILINE,
+    ), "README docs text should link to the repository docs index"
