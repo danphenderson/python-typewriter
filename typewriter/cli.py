@@ -1,34 +1,78 @@
+import json
+from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 import typer
 
-from typewriter.codemod import (
-    CodemodContext,
-    process_code,
-    process_file,
-    process_files_in_directory,
-)
+from typewriter.codemod import ProcessResult, ProcessStringResult
+from typewriter.runner import TypewriterRunner, _supports_pep604
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
 
-def _parse_target_version(value: Optional[str]) -> bool:
-    """Return *True* when *value* indicates Python 3.10+ (PEP 604 unions)."""
-    if value is None:
-        return False
-    try:
-        parts = value.replace("py", "").split(".")
-        if len(parts) == 1 and len(parts[0]) >= 3:
-            # e.g. "py310" → (3, 10)
-            major = int(parts[0][0])
-            minor = int(parts[0][1:])
-        else:
-            major, minor = int(parts[0]), int(parts[1])
-        return (major, minor) >= (3, 10)
-    except (ValueError, IndexError):
-        raise typer.BadParameter(f"Invalid target version: {value!r}. Use e.g. '3.10' or '3.9'.")
+class OutputFormat(str, Enum):
+    TEXT = "text"
+    JSON = "json"
+
+
+def _serialize_process_result(
+    result: ProcessResult,
+    *,
+    path: Path,
+    check: bool,
+    target_version: Optional[str],
+    use_pep604: bool,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "type": "directory" if path.is_dir() else "file",
+        "path": str(path),
+        "check": check,
+        "processed_files": result.processed_files,
+        "changed_count": result.changed_count,
+        "changed_files": [str(file_path) for file_path in result.changed_files],
+        "target_version": target_version,
+        "use_pep604": use_pep604,
+    }
+    if result.diffs:
+        payload["diffs"] = {str(file_path): diff_text for file_path, diff_text in result.diffs.items()}
+    return payload
+
+
+def _serialize_string_result(
+    result: ProcessStringResult,
+    *,
+    check: bool,
+    target_version: Optional[str],
+    use_pep604: bool,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "type": "code",
+        "check": check,
+        "changed": result.changed,
+        "target_version": target_version,
+        "use_pep604": use_pep604,
+    }
+    if check:
+        if result.changed:
+            import difflib
+
+            diff_lines = difflib.unified_diff(
+                result.original_code.splitlines(),
+                result.transformed_code.splitlines(),
+                fromfile="provided",
+                tofile="provided",
+                lineterm="",
+            )
+            payload["diff"] = "\n".join(diff_lines)
+    else:
+        payload["transformed_code"] = result.transformed_code
+    return payload
+
+
+def _emit_json(payload: Dict[str, Any], *, err: bool = False) -> None:
+    typer.echo(json.dumps(payload, sort_keys=True), err=err)
 
 
 @app.callback()
@@ -77,6 +121,11 @@ def run(
         "--respect-gitignore",
         help="Respect the nearest .gitignore at or above the scanned directory.",
     ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TEXT,
+        "--output-format",
+        help="Choose 'text' for human-readable output or 'json' for automation.",
+    ),
 ) -> None:
     """Rewrite `None`-related type annotations in a file or directory.
 
@@ -87,17 +136,32 @@ def run(
     Use `--respect-gitignore` to also skip files ignored by Git.
     """
     try:
-        use_pep604 = _parse_target_version(target_version)
-        context = CodemodContext(use_pep604=use_pep604)
-        extra_ignore_patterns = list(ignore) if ignore else None
+        use_pep604 = _supports_pep604(target_version)
+        typewriter_runner = TypewriterRunner(
+            target_version=target_version,
+            ignore=ignore,
+            respect_gitignore=respect_gitignore,
+        )
 
         if code is not None:
             if path is not None:
                 raise typer.BadParameter("Provide either PATH or --code, not both.")
 
             normalized_code = code.replace("\\n", "\n")
-            string_result = process_code(normalized_code, context=context)
+            string_result = typewriter_runner.process_code(normalized_code)
             if check:
+                if output_format is OutputFormat.JSON:
+                    _emit_json(
+                        _serialize_string_result(
+                            string_result,
+                            check=True,
+                            target_version=target_version,
+                            use_pep604=use_pep604,
+                        )
+                    )
+                    if string_result.changed:
+                        raise typer.Exit(code=1)
+                    return
                 if string_result.changed:
                     typer.echo("Would transform provided code.")
                     # Provide a readable diff in check mode.
@@ -115,31 +179,64 @@ def run(
                 typer.echo("No changes.")
                 return
 
-            typer.echo(string_result.transformed_code, nl=False)
+            if output_format is OutputFormat.JSON:
+                _emit_json(
+                    _serialize_string_result(
+                        string_result,
+                        check=False,
+                        target_version=target_version,
+                        use_pep604=use_pep604,
+                    )
+                )
+            else:
+                typer.echo(string_result.transformed_code, nl=False)
             return
 
         if path is None:
-            typer.echo("Error: either PATH or --code must be provided.", err=True)
+            if output_format is OutputFormat.JSON:
+                _emit_json({"error": "either PATH or --code must be provided.", "type": "error"}, err=True)
+            else:
+                typer.echo("Error: either PATH or --code must be provided.", err=True)
             raise typer.Exit(code=2)
 
         if path.is_dir():
-            result = process_files_in_directory(
-                path,
-                write=not check,
-                include_diff=check,
-                context=context,
-                extra_ignore_patterns=extra_ignore_patterns,
-                respect_gitignore=respect_gitignore,
-            )
+            result = typewriter_runner.process_directory(path, write=not check, include_diff=check)
         else:
             if path.suffix != ".py":
                 raise typer.BadParameter("Only '.py' files are supported.")
-            result = process_file(path, write=not check, include_diff=check, context=context)
-    except (typer.Exit, click.ClickException):
+            result = typewriter_runner.process_file(path, write=not check, include_diff=check)
+    except typer.Exit:
+        raise
+    except ValueError as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+            raise typer.Exit(code=2)
+        raise typer.BadParameter(str(exc))
+    except click.ClickException as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": exc.format_message(), "type": "error"}, err=True)
+            raise typer.Exit(code=exc.exit_code)
         raise
     except Exception as exc:
-        typer.echo(f"Error: {exc}", err=True)
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+        else:
+            typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=2)
+
+    if output_format is OutputFormat.JSON:
+        _emit_json(
+            _serialize_process_result(
+                result,
+                path=path,
+                check=check,
+                target_version=target_version,
+                use_pep604=use_pep604,
+            )
+        )
+        if check and result.changed_count > 0:
+            raise typer.Exit(code=1)
+        return
 
     action = "Would transform" if check else "Transformed"
     for file_path in result.changed_files:

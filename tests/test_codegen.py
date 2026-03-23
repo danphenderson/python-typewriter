@@ -2,6 +2,7 @@ import pytest
 
 from typewriter.codemod import (
     CodemodContext,
+    EnforceOptionallNoneTypes,
     EnforceOptionalNoneTypes,
     InferOptionalNoneTypes,
     _iter_python_files,
@@ -62,6 +63,20 @@ def test_union_to_optional_transform(source_code, expected_code):
 )
 def test_enforce_optional_transform(source_code, expected_code):
     assert apply(source_code, InferOptionalNoneTypes()) == expected_code
+
+
+def test_process_code_accepts_dict_context_for_pep604_output():
+    result = process_code("value: int = None\n", context={"use_pep604": True})
+
+    assert result.changed is True
+    assert "value: int | None = None" in result.transformed_code
+
+
+def test_deprecated_enforce_optional_none_types_warns():
+    with pytest.deprecated_call(match="deprecated"):
+        transformed = apply("value: Union[int, None]", EnforceOptionallNoneTypes())
+
+    assert transformed == "value: Optional[int]"
 
 
 # ---------------------------------------------------------------------------
