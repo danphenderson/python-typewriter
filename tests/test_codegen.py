@@ -8,6 +8,7 @@ from typewriter.codemod import (
     _iter_python_files,
     apply,
     process_code,
+    process_file,
     process_files_in_directory,
 )
 
@@ -127,6 +128,12 @@ def test_pep604_already_optional_not_rewrapped():
     assert apply(source, InferOptionalNoneTypes(ctx)) == source
 
 
+def test_pep604_left_nested_none_union_is_not_rewrapped():
+    ctx = CodemodContext(use_pep604=True)
+    source = "var: None | int | str = None"
+    assert apply(source, InferOptionalNoneTypes(ctx)) == source
+
+
 # ---------------------------------------------------------------------------
 # process_code – existing behaviour preserved
 # ---------------------------------------------------------------------------
@@ -152,6 +159,22 @@ def test_process_code_reuses_typing_namespace_for_qualified_union():
     assert result.changed is True
     assert "x: typing.Optional[int] = None" in result.transformed_code
     assert "from typing import Optional" not in result.transformed_code
+
+
+def test_process_code_reuses_qualified_optional_for_parameter_annotation():
+    source_code = "import typing\ndef func(var: typing.Dict[str, int] = None): pass\n"
+    result = process_code(source_code)
+
+    assert result.changed is True
+    assert "def func(var: typing.Optional[typing.Dict[str, int]] = None): pass" in result.transformed_code
+
+
+def test_process_code_preserves_qualified_optional_parameter_annotation():
+    source_code = "import typing\ndef func(var: typing.Optional[int] = None): pass\n"
+    result = process_code(source_code)
+
+    assert result.changed is False
+    assert result.transformed_code == source_code
 
 
 def test_process_code_removes_unused_union_import_when_fully_rewritten():
@@ -414,6 +437,41 @@ def test_process_files_in_directory_respects_parent_gitignore(tmp_path):
 
     assert result.processed_files == 1
     assert result.changed_files == [kept]
+
+
+def test_process_file_handles_non_python_and_unchanged_inputs(tmp_path):
+    text_file = tmp_path / "notes.txt"
+    text_file.write_text("value: int = None\n", encoding="utf-8")
+
+    skipped = process_file(text_file, write=False, include_diff=True)
+
+    assert skipped.processed_files == 0
+    assert skipped.changed_count == 0
+    assert skipped.diffs == {}
+
+    python_file = tmp_path / "module.py"
+    python_file.write_text("value: Optional[int] = None\n", encoding="utf-8")
+
+    unchanged = process_file(python_file, write=False, include_diff=True)
+
+    assert unchanged.processed_files == 1
+    assert unchanged.changed_count == 0
+    assert unchanged.changed_files == []
+    assert unchanged.diffs == {}
+
+
+def test_process_file_writes_changes_and_collects_diff(tmp_path):
+    python_file = tmp_path / "module.py"
+    python_file.write_text("value: int = None\n", encoding="utf-8")
+
+    result = process_file(python_file, include_diff=True)
+
+    assert result.processed_files == 1
+    assert result.changed_count == 1
+    assert result.changed_files == [python_file]
+    assert result.diffs[python_file].startswith(f"--- {python_file}")
+    assert "+from typing import Optional" in result.diffs[python_file]
+    assert python_file.read_text(encoding="utf-8") == "from typing import Optional\n\nvalue: Optional[int] = None\n"
 
 
 # ---------------------------------------------------------------------------

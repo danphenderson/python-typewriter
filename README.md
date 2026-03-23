@@ -49,7 +49,7 @@ Additional notes:
 
 ### Installation for PyPI
 ```bash
-pip install py-typewriter-cli # Python 3.10-3.13
+pip install py-typewriter-cli # Python 3.10-3.14
 ```
 
 ### Usage
