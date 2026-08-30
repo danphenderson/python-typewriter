@@ -28,8 +28,8 @@ rm -rf "${artifacts}/dist"
 build_rc=$(run_gate build \
     .venv/bin/python -m build --no-isolation --outdir "${artifacts}/dist")
 
-git diff --binary >"${artifacts}/agent.patch"
-git status --short >"${artifacts}/git-status.txt"
+git -c safe.directory="${workspace}" diff --binary >"${artifacts}/agent.patch"
+git -c safe.directory="${workspace}" status --short >"${artifacts}/git-status.txt"
 
 reward=0
 if [[ "${targeted_rc}" -eq 0 && "${regression_rc}" -eq 0 && "${build_rc}" -eq 0 ]]; then
