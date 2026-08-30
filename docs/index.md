@@ -33,11 +33,14 @@ def f(x: T = None) -> def f(x: T | None = None)
 - Supports check-only mode for CI and apply mode for local codemods.
 - Can respect both custom `--ignore` patterns and the nearest `.gitignore`.
 - Loads shared `[tool.typewriter]` policy from the nearest ancestor `pyproject.toml`.
+- Provides an official atomic pre-commit hook and a verified adoption path.
 
 ## Read next
 
 - [Getting started](getting-started.md) for installation and a first run
+- [Adoption workflow](adoption.md) for the release-pinned project-policy path
 - [Usage](usage.md) for CLI, CI, and pre-commit examples
 - [Behavior](behavior.md) for target-version and ignore semantics
 - [Motivation](motivation.md) for the Playwright context behind the tool
 - [API reference](api.md) for the intentionally lightweight public API docs
+- [Release runbook](release.md) for the independent 1.2.0 release gates

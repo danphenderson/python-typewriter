@@ -78,13 +78,13 @@ A minimal GitHub Actions step looks like:
 ## pre-commit example
 
 The official hook uses the filenames selected by pre-commit and processes them
-as one atomic batch. Replace `<tag-containing-hook>` with a released tag that
-contains the hook manifest:
+as one atomic batch. Use the planned pin below only after the `v1.2.0` release
+gates are complete:
 
 ```yaml
 repos:
   - repo: https://github.com/danphenderson/python-typewriter
-    rev: <tag-containing-hook>
+    rev: v1.2.0
     hooks:
       - id: typewriter
 ```

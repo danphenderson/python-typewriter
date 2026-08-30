@@ -9,10 +9,12 @@ strict: true
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Adoption workflow: adoption.md
   - Usage: usage.md
   - Behavior: behavior.md
   - Motivation: motivation.md
   - API reference: api.md
+  - Release runbook: release.md
 
 theme:
   name: material

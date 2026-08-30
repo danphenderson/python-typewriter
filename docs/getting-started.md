@@ -78,3 +78,7 @@ ignore = ["generated"]
 
 Typewriter discovers that file from the invocation directory. Pass `--config`
 when a workflow must use a different policy file.
+
+For the complete install, preview, policy, apply, official-hook, and CI sequence,
+continue to the [verified adoption workflow](adoption.md). Version 1.2.0 remains
+unreleased until every gate in the [release runbook](release.md) is complete.

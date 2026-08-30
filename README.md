@@ -11,6 +11,10 @@
 
 Full documentation is available in the repository at [docs/index.md](docs/index.md).
 
+Version 1.2.0 is prepared in source but is not yet tagged or published. See the
+[changelog](CHANGELOG.md) and [release runbook](docs/release.md) for the distinct
+remaining gates.
+
 ## Overview
 
 Typewriter is a Python [Typer](https://typer.tiangolo.com/) CLI built on [LibCST](https://libcst.readthedocs.io/en/latest/) that normalizes `None`-related type annotations in Python source code. It can be used to automatically rewrite type annotations to use `Optional` instead of `Union` when `None` is involved, and to ensure `Optional` is used for variable and parameter annotations when the default value is `None`.
@@ -48,6 +52,56 @@ Additional notes:
 - Unused `Union` and `Optional` imports are cleaned up after rewriting.
 
 ## Quick Start
+
+### Verified 1.2.0 adoption path
+
+After 1.2.0 is published, adopt one exact package and policy through this
+sequence:
+
+```bash
+python -m pip install "py-typewriter-cli==1.2.0"
+typewriter run . --check
+```
+
+Commit shared policy, inspect it, and preview the policy-aware result before
+applying:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+```bash
+typewriter config
+typewriter run . --check
+typewriter run .
+```
+
+Pin the official hook only after the `v1.2.0` tag exists:
+
+```yaml
+repos:
+  - repo: https://github.com/danphenderson/python-typewriter
+    rev: v1.2.0
+    hooks:
+      - id: typewriter
+```
+
+Use the same policy as a CI gate:
+
+```yaml
+- name: Install Typewriter
+  run: python -m pip install "py-typewriter-cli==1.2.0"
+- name: Check Typewriter policy
+  run: typewriter run . --check
+```
+
+The [verified adoption guide](docs/adoption.md) gives the executable lifecycle,
+exit-code handling, and pre-release boundary. Maintainers can rehearse the path
+before publication with `tools/test_adoption_workflow.sh` against a local source
+tree or built wheel.
 
 ### Installation for PyPI
 ```bash
@@ -203,13 +257,13 @@ A minimal GitHub Actions step looks like this:
 ### Using Typewriter with pre-commit
 
 The official hook accepts the Python filenames selected by pre-commit and sends
-them to one atomic Typewriter batch. Replace `<tag-containing-hook>` with a
-released tag that includes `.pre-commit-hooks.yaml`:
+them to one atomic Typewriter batch. Use the planned pin below only after the
+`v1.2.0` release gates are complete:
 
 ```yaml
 repos:
   - repo: https://github.com/danphenderson/python-typewriter
-    rev: <tag-containing-hook>
+    rev: v1.2.0
     hooks:
       - id: typewriter
 ```

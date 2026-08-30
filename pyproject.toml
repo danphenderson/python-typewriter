@@ -8,9 +8,9 @@ include = ["typewriter*"]
 
 [project]
 name = "py-typewriter-cli"
-version = "1.1.0"
+version = "1.2.0"
 requires-python = ">=3.10,<3.15"
-description = "A CLI tool for generating type annotations."
+description = "A LibCST codemod and CLI for normalizing None-related Python type annotations."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
