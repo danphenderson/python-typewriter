@@ -1,0 +1,45 @@
+name: Official pre-commit hook
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/pre-commit-hook.yml"
+      - ".pre-commit-hooks.yaml"
+      - "pyproject.toml"
+      - "tools/test_pre_commit_hook.sh"
+      - "typewriter/**"
+  pull_request:
+    paths:
+      - ".github/workflows/pre-commit-hook.yml"
+      - ".pre-commit-hooks.yaml"
+      - "pyproject.toml"
+      - "tools/test_pre_commit_hook.sh"
+      - "typewriter/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pre-commit-hook-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  try-repo:
+    name: pre-commit try-repo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install pre-commit
+        run: python -m pip install "pre-commit==4.6.2"
+
+      - name: Exercise the repository hook
+        run: tools/test_pre_commit_hook.sh

@@ -77,17 +77,20 @@ A minimal GitHub Actions step looks like:
 
 ## pre-commit example
 
-Typewriter accepts one or more paths per invocation. A local hook that scans the repository root is the simplest setup when every commit should use the same scope:
+The official hook uses the filenames selected by pre-commit and processes them
+as one atomic batch. Replace `<tag-containing-hook>` with a released tag that
+contains the hook manifest:
 
 ```yaml
 repos:
-  - repo: local
+  - repo: https://github.com/danphenderson/python-typewriter
+    rev: <tag-containing-hook>
     hooks:
       - id: typewriter
-        name: typewriter
-        entry: typewriter run .
-        language: system
-        pass_filenames: false
 ```
 
-That local hook pairs well with a CI `--check` run so contributors see the same normalization rules locally and in pull requests.
+Normal filename passing means only selected Python files are considered; `.pyi`
+stubs are excluded. The hook applies the nearest `[tool.typewriter]` policy and
+keeps batch rollback guarantees if any passed file fails. Its first rewriting
+run exits nonzero, so stage the edits and rerun. Pair it with a CI `--check` run
+so contributors see the same policy locally and in pull requests.
