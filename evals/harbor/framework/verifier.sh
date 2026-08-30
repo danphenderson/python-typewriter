@@ -2,16 +2,16 @@
 set -u
 
 workspace=/workspace/typewriter
-artifacts=/logs/artifacts
 verifier_logs=/logs/verifier
+receipts=${verifier_logs}/receipts
 
-mkdir -p "${artifacts}" "${verifier_logs}"
+mkdir -p "${receipts}" "${verifier_logs}"
 cd "${workspace}" || exit 1
 
 run_gate() {
     local name="$1"
     shift
-    "$@" >"${artifacts}/${name}.log" 2>&1
+    "$@" >"${receipts}/${name}.log" 2>&1
     local return_code=$?
     printf '%s' "${return_code}"
 }
@@ -24,12 +24,13 @@ regression_rc=$(run_gate regression \
     .venv/bin/python -m pytest -q tests \
     --junitxml="${verifier_logs}/regression-junit.xml")
 
-rm -rf "${artifacts}/dist"
+rm -rf "${receipts}/dist"
 build_rc=$(run_gate build \
-    .venv/bin/python -m build --no-isolation --outdir "${artifacts}/dist")
+    .venv/bin/python -m build --no-isolation --outdir "${receipts}/dist")
 
-git -c safe.directory="${workspace}" diff --binary >"${artifacts}/agent.patch"
-git -c safe.directory="${workspace}" status --short >"${artifacts}/git-status.txt"
+git -c safe.directory="${workspace}" status --short >"${receipts}/git-status.txt"
+git -c safe.directory="${workspace}" add -N -- .
+git -c safe.directory="${workspace}" diff --binary >"${receipts}/agent.patch"
 
 reward=0
 if [[ "${targeted_rc}" -eq 0 && "${regression_rc}" -eq 0 && "${build_rc}" -eq 0 ]]; then
@@ -42,7 +43,7 @@ jq -n \
     --argjson build_rc "${build_rc}" \
     --argjson reward "${reward}" \
     '{targeted_rc: $targeted_rc, regression_rc: $regression_rc, build_rc: $build_rc, reward: $reward}' \
-    >"${artifacts}/gate-results.json"
+    >"${receipts}/gate-results.json"
 
 printf '%s\n' "${reward}" >"${verifier_logs}/reward.txt"
 exit 0
