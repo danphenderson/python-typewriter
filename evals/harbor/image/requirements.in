@@ -1,0 +1,31 @@
+# Runtime dependencies
+libcst==1.1.0
+pathspec==1.0.4
+typer==0.24.1
+
+# Test dependencies
+coverage[toml]
+exceptiongroup; python_version < "3.11"
+pytest
+pytest-cov
+tomli; python_version < "3.11"
+
+# Repository-maintenance dependencies
+autoflake==1.4
+black==23.10.0
+build
+flake8==6.1.0
+isort==5.13.2
+mypy==1.8.0
+pre-commit
+setuptools
+wheel
+
+# Documentation dependencies
+sphinx
+sphinx-autodoc-annotation
+sphinx-autodoc-typehints
+sphinx-py3doc-enhanced-theme
+sphinxcontrib-asyncio
+sphinxcontrib-napoleon
+sphinxcontrib-trio

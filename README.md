@@ -246,6 +246,13 @@ developers can ensure that their codebase adheres to [PEP 484](https://peps.pyth
 
 ## Contributing
 Contributions to Typewriter are welcome! Please follow the fork-and-pull request workflow:
+
 1. Fork the repository and create a new branch for your feature or bug fix.
 2. Make your changes and commit them with clear messages.
 3. Push your branch to your fork and open a pull request against the `main` branch of the original repository.
+
+When a maintenance change captures a reusable engineering capability, preserve
+it as a Harbor eval after the fix has been reviewed. The
+[Typewriter Harbor maintenance guide](evals/harbor/README.md) explains how to
+turn the pre-change and fixed commits plus the new regression test into a
+deterministic no-op/Oracle-qualified task.
