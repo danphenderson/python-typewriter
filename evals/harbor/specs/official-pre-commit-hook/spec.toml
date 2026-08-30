@@ -1,0 +1,30 @@
+schema_version = 1
+slug = "official-pre-commit-hook"
+
+task_name = "danphenderson/python-typewriter-official-pre-commit-hook"
+task_version = "1.0.0"
+description = "Publish and continuously exercise an official atomic pre-commit hook for python-typewriter."
+
+base_ref = "884ad16da52e973ceee4b25f6a7d6d13b041048c"
+solution_ref = "4cba742e8c288e4c4b1075a78ba67afb523be661"
+solution_paths = [
+    ".pre-commit-hooks.yaml",
+    "tools/test_pre_commit_hook.sh",
+    ".github/workflows/pre-commit-hook.yml",
+    "README.md",
+    "docs/usage.md",
+]
+hidden_test_files = ["hidden_tests/test_official_pre_commit_hook.py"]
+
+keywords = ["python", "repository-maintenance", "pre-commit", "hooks", "ci"]
+difficulty = "hard"
+category = "software-engineering"
+
+agent_timeout_sec = 900.0
+verifier_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+author_name = "Daniel Henderson"
+author_email = "me@danhenderson.dev"
