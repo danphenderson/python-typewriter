@@ -44,5 +44,9 @@ def test_verifier_receipts_use_the_persisted_verifier_tree():
     status_command = 'git -c safe.directory="${workspace}" status --short ' '>"${receipts}/git-status.txt"'
     add_intent_command = 'git -c safe.directory="${workspace}" add -N -- .'
     diff_command = 'git -c safe.directory="${workspace}" diff --binary ' '>"${receipts}/agent.patch"'
+    final_receipt_write = '    >"${receipts}/gate-results.json"'
+    make_receipts_host_movable = 'chmod -R a+rwX "${receipts}"'
     assert verifier.index(status_command) < verifier.index(add_intent_command)
     assert verifier.index(add_intent_command) < verifier.index(diff_command)
+    assert verifier.index(final_receipt_write) < verifier.index(make_receipts_host_movable)
+    assert verifier.index(make_receipts_host_movable) < verifier.index("exit 0")

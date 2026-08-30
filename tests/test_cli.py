@@ -503,6 +503,17 @@ def test_config_json_reports_default_values_and_sources(tmp_path, monkeypatch):
     }
 
 
+def test_config_text_reports_empty_default_policy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["config"])
+
+    assert result.exit_code == 0
+    assert result.stdout == (
+        "Config file: (none)\n" "target_version: (none) (default)\n" "respect_gitignore: false (default)\n" "ignore: (none)\n"
+    )
+
+
 def test_config_text_and_json_have_value_source_parity(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
@@ -653,6 +664,49 @@ def test_config_missing_explicit_file_is_a_structured_json_error(tmp_path):
     payload = json.loads(result.stderr)
     assert payload["type"] == "error"
     assert "not a readable file" in payload["error"]
+
+
+def test_config_value_error_uses_text_cli_diagnostics(tmp_path):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text("[tool.typewriter]\nunknown = true\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["config", "--config", str(config_path)])
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert "Unknown tool.typewriter config key" in result.output
+
+
+@pytest.mark.parametrize("output_format", ["text", "json"])
+def test_config_preserves_click_exception_semantics(monkeypatch, output_format):
+    def raise_click_exception(*args, **kwargs):
+        raise click.ClickException("injected click failure")
+
+    monkeypatch.setattr(cli_module, "load_typewriter_config", raise_click_exception)
+
+    result = runner.invoke(app, ["config", "--output-format", output_format])
+
+    assert result.exit_code == 1
+    if output_format == "json":
+        assert json.loads(result.stderr) == {"error": "injected click failure", "type": "error"}
+    else:
+        assert "injected click failure" in result.output
+
+
+@pytest.mark.parametrize("output_format", ["text", "json"])
+def test_config_converts_unexpected_failures_to_code_two(monkeypatch, output_format):
+    def raise_runtime_error(*args, **kwargs):
+        raise RuntimeError("injected runtime failure")
+
+    monkeypatch.setattr(cli_module, "load_typewriter_config", raise_runtime_error)
+
+    result = runner.invoke(app, ["config", "--output-format", output_format])
+
+    assert result.exit_code == 2
+    if output_format == "json":
+        assert json.loads(result.stderr) == {"error": "injected runtime failure", "type": "error"}
+    else:
+        assert "Error: injected runtime failure" in result.output
 
 
 def test_run_discovers_project_config_from_invocation_cwd(tmp_path, monkeypatch):

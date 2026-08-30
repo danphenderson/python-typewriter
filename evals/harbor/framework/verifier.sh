@@ -46,4 +46,5 @@ jq -n \
     >"${receipts}/gate-results.json"
 
 printf '%s\n' "${reward}" >"${verifier_logs}/reward.txt"
+chmod -R a+rwX "${receipts}"
 exit 0

@@ -545,6 +545,34 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
     assert typewriter._load_toml_parser() is FakeTomli
 
 
+def test_read_pyproject_version_uses_the_runtime_toml_parser(tmp_path, monkeypatch):
+    import typewriter
+
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text('[project]\nversion = "9.9.9"\n', encoding="utf-8")
+    monkeypatch.setattr(typewriter, "_PYPROJECT_PATH", pyproject_path)
+
+    assert typewriter._load_toml_parser().__name__ in {"tomli", "tomllib"}
+    assert typewriter._read_pyproject_version() == "9.9.9"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'project = "not a table"\n',
+        '[project]\nversion = 999\n',
+    ],
+)
+def test_read_pyproject_version_rejects_malformed_project_metadata(tmp_path, monkeypatch, content):
+    import typewriter
+
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(typewriter, "_PYPROJECT_PATH", pyproject_path)
+
+    assert typewriter._read_pyproject_version() is None
+
+
 # ---------------------------------------------------------------------------
 # Docs configuration
 # ---------------------------------------------------------------------------

@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest
 
 from typewriter import TypewriterConfig, TypewriterRunner, load_typewriter_config
-from typewriter.config import ConfigSource, apply_cli_overrides
+from typewriter.config import (
+    ConfigProvenance,
+    ConfigSource,
+    apply_cli_overrides,
+    target_version_uses_pep604,
+)
 
 try:
     import tomllib
@@ -25,6 +30,37 @@ def test_typewriter_config_is_immutable_and_normalizes_sequences():
     assert config.ignore_roots == (None,)
     with pytest.raises(FrozenInstanceError):
         config.target_version = "3.10"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"respect_gitignore": "yes"}, "respect-gitignore must be a boolean"),
+        ({"target_version": 310}, "target-version must be a string"),
+        ({"ignore": [""]}, "ignore must be an array of non-empty strings"),
+        ({"ignore": ["generated"], "ignore_roots": [None, None]}, "ignore roots must correspond one-to-one"),
+        (
+            {
+                "ignore": ["generated"],
+                "provenance": ConfigProvenance(ignore=(ConfigSource.DEFAULT, ConfigSource.DEFAULT)),
+            },
+            "ignore provenance must correspond one-to-one",
+        ),
+    ],
+)
+def test_typewriter_config_rejects_invalid_direct_api_values(kwargs, message):
+    with pytest.raises((TypeError, ValueError), match=message):
+        TypewriterConfig(**kwargs)
+
+
+def test_typewriter_config_reports_its_config_root(tmp_path):
+    config_path = _write_config(tmp_path / "project" / "pyproject.toml", 'target-version = "3.10"\n')
+
+    loaded = load_typewriter_config(config_path=config_path)
+
+    assert loaded.config_root == config_path.parent.resolve()
+    assert TypewriterConfig().config_root is None
+    assert target_version_uses_pep604(None) is False
 
 
 def test_loader_discovers_the_nearest_ancestor_pyproject(tmp_path):
@@ -108,6 +144,43 @@ def test_loader_rejects_an_explicit_unreadable_config(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="not a readable file"):
         load_typewriter_config(config_path=config_path)
+
+
+def test_loader_wraps_config_read_errors(tmp_path, monkeypatch):
+    config_path = _write_config(tmp_path / "policy.toml", 'target-version = "3.10"\n')
+    real_open = type(config_path).open
+
+    def fail_config_open(path, *args, **kwargs):
+        if path == config_path.resolve():
+            raise OSError("injected read failure")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(type(config_path), "open", fail_config_open)
+
+    with pytest.raises(ValueError, match="Could not read config file.*injected read failure"):
+        load_typewriter_config(config_path=config_path)
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ('tool = "not a table"\n', "tool must be a table"),
+        ('[tool]\ntypewriter = "not a table"\n', "tool.typewriter must be a table"),
+    ],
+)
+def test_loader_rejects_non_table_tool_sections(tmp_path, content, message):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_typewriter_config(config_path=config_path)
+
+
+def test_cli_override_api_rejects_malformed_values():
+    with pytest.raises(TypeError, match="CLI override must be a boolean"):
+        apply_cli_overrides(TypewriterConfig(), respect_gitignore="yes")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="--ignore values must be non-empty strings"):
+        apply_cli_overrides(TypewriterConfig(), ignore=[""])
 
 
 def test_runner_from_config_uses_target_version_and_config_rooted_ignores(tmp_path):
