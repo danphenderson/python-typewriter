@@ -16,6 +16,16 @@ typewriter run . --respect-gitignore
 
 When a directory is scanned, Typewriter ignores non-`.py` files and common non-source directories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.
 
+Combine files and directories when a maintenance task spans several scopes:
+
+```bash
+typewriter run src tests/test_cli.py --check
+```
+
+Inputs keep their command-line order, files found within each directory are sorted,
+and overlapping paths are processed once. Apply mode validates and transforms the
+entire batch before replacing files; a later failure restores any earlier replacement.
+
 ## JSON output for automation
 
 If another tool needs structured output, use JSON:
@@ -37,7 +47,7 @@ A minimal GitHub Actions step looks like:
 
 ## pre-commit example
 
-Typewriter accepts a single path per invocation, so a local hook that scans the repository root is the simplest setup:
+Typewriter accepts one or more paths per invocation. A local hook that scans the repository root is the simplest setup when every commit should use the same scope:
 
 ```yaml
 repos:

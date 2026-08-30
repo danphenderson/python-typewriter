@@ -6,7 +6,7 @@
 pip install py-typewriter-cli
 ```
 
-Typewriter supports Python 3.10 through 3.13.
+Typewriter supports Python 3.10 through 3.14.
 
 ## First run
 
@@ -51,10 +51,16 @@ Run recursively on Python files in a directory:
 typewriter run examples
 ```
 
+Process an ordered mix of files and directories as one atomic batch:
+
+```bash
+typewriter run src tests/test_cli.py
+```
+
 Transform an in-memory string instead of a file:
 
 ```bash
 typewriter run --code "var: int = None\n"
 ```
 
-`PATH` and `--code` are mutually exclusive, and literal `\n` sequences in `--code` input are interpreted as newlines.
+`PATHS` and `--code` are mutually exclusive, and literal `\n` sequences in `--code` input are interpreted as newlines.

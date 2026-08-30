@@ -379,6 +379,106 @@ def test_run_json_error_is_emitted_for_click_exceptions(monkeypatch):
     assert payload == {"error": "boom", "type": "error"}
 
 
+def test_run_multiple_paths_json_check_preserves_order_and_deduplicates(tmp_path):
+    first = tmp_path / "b.py"
+    first.write_text("b: int = None\n", encoding="utf-8")
+    second = tmp_path / "a.py"
+    second.write_text("a: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["run", str(first), str(tmp_path), "--check", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["type"] == "paths"
+    assert payload["paths"] == [str(first), str(tmp_path)]
+    assert payload["processed_files"] == 2
+    assert payload["changed_count"] == 2
+    assert payload["changed_files"] == [str(first), str(second)]
+    assert set(payload["diffs"]) == {str(first), str(second)}
+    assert first.read_text(encoding="utf-8") == "b: int = None\n"
+    assert second.read_text(encoding="utf-8") == "a: int = None\n"
+
+
+def test_run_multiple_paths_apply_is_atomic_when_later_file_is_malformed(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    malformed = tmp_path / "b.py"
+    malformed.write_text("def broken(:\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(first), str(malformed), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert json.loads(result.stderr)["type"] == "error"
+    assert first.read_bytes() == original
+
+
+def test_run_invalid_later_path_does_not_modify_an_earlier_file(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    unsupported = tmp_path / "notes.txt"
+    unsupported.write_text("not Python\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(first), str(unsupported)])
+
+    assert result.exit_code == 2
+    assert "Only '.py' files are supported" in result.output
+    assert first.read_bytes() == original
+
+
+def test_run_missing_later_path_emits_one_json_error_without_writing(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    missing = tmp_path / "missing.py"
+
+    result = runner.invoke(app, ["run", str(first), str(missing), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "does not exist" in payload["error"]
+    assert first.read_bytes() == original
+
+
+def test_run_code_rejects_multiple_paths(tmp_path):
+    first = tmp_path / "a.py"
+    first.write_text("a: int = None\n", encoding="utf-8")
+    second = tmp_path / "b.py"
+    second.write_text("b: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["run", str(first), str(second), "--code", "value: int = None\n", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Provide either PATH" in payload["error"]
+
+
+def test_run_single_path_json_schema_remains_singular(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("value: Optional[int] = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(file_path), "--check", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["type"] == "file"
+    assert payload["path"] == str(file_path)
+    assert "paths" not in payload
+
+
 def test_run_text_error_is_emitted_for_click_exceptions(monkeypatch):
     def raise_click_exception(*args, **kwargs):
         raise click.ClickException("boom")

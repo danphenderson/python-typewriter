@@ -94,8 +94,14 @@ typewriter run path/to/example.py
 ### Additional features:
 To run recursively on all `*.py` files in a directory:
 ```bash
-typewriter run examples # Non-`.py` files are rejected.
+typewriter run examples # Non-`.py` files inside the directory are ignored.
 ```
+Files and directories can be combined in one ordered, deduplicated run:
+```bash
+typewriter run pyproject_hooks.py src tests
+```
+Typewriter validates and transforms every selected Python file before it writes
+anything. If a later parse or write fails, earlier replacements are not left behind.
 To transform an in-memory string and return the result to stdout, use `--code`:
 ```bash
 typewriter run --code "var: int = None\\n"
@@ -125,7 +131,7 @@ typewriter run myproject --respect-gitignore
 ```
 
 #### Additional Details:
-- `PATH` and `--code` are mutually exclusive.
+- `PATHS` and `--code` are mutually exclusive.
 - Literal `\\n` sequences in `--code` input are interpreted as newlines.
 - When a directory is provided as `PATH`, Typewriter will ignore non-`.py` files and
 common non-source subdirectories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.
@@ -163,8 +169,8 @@ A minimal GitHub Actions step looks like this:
 
 ### Using Typewriter with pre-commit
 
-Typewriter currently accepts a single path per invocation, so the simplest pre-commit
-integration is a local hook that scans the repository root:
+Typewriter accepts one or more paths per invocation. A local hook that scans the
+repository root is the simplest configuration when every commit should use the same scope:
 
 ```yaml
 repos:

@@ -28,6 +28,14 @@ typewriter run myproject --respect-gitignore
 
 The built-in skip set stays active regardless of custom patterns.
 
+## Batch processing
+
+One invocation can contain multiple files and directories. Typewriter validates all
+explicit inputs first, preserves their order, sorts each directory traversal, and
+deduplicates overlaps by resolved path. Every selected file gets an independent codemod
+context, and apply mode finishes all reads and transformations before it replaces any
+file. If a later replacement fails, earlier replacements are restored.
+
 ## Additional details
 
 - Qualified typing references are preserved.

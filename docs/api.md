@@ -9,7 +9,7 @@ That is a deliberate choice for this MkDocs migration: it keeps the docs easier 
 The supported command is:
 
 ```bash
-typewriter run [PATH] [OPTIONS]
+typewriter run [PATHS]... [OPTIONS]
 ```
 
 The most important options are:
@@ -39,11 +39,16 @@ runner = TypewriterRunner(
 code_result = runner.process_code("value: int = None\n")
 file_result = runner.process_file(Path("example.py"), write=False, include_diff=True)
 directory_result = runner.process_directory(Path("."), write=False, include_diff=True)
+batch_result = runner.process_paths(
+    [Path("src"), Path("tests/test_cli.py")],
+    write=False,
+    include_diff=True,
+)
 ```
 
 `process_code` returns a structured string result with the original and transformed source.
 
-`process_file` and `process_directory` return structured results describing processed paths, changed paths, and optional unified diffs.
+`process_file`, `process_directory`, and `process_paths` return structured results describing processed paths, changed paths, and optional unified diffs. `process_paths` preserves explicit input order, deduplicates overlaps by resolved path, and completes all reads and transformations before atomically replacing changed files.
 
 ## Lower-level codemod module
 

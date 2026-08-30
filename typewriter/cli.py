@@ -40,6 +40,29 @@ def _serialize_process_result(
     return payload
 
 
+def _serialize_paths_result(
+    result: ProcessResult,
+    *,
+    paths: List[Path],
+    check: bool,
+    target_version: Optional[str],
+    use_pep604: bool,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "type": "paths",
+        "paths": [str(path) for path in paths],
+        "check": check,
+        "processed_files": result.processed_files,
+        "changed_count": result.changed_count,
+        "changed_files": [str(file_path) for file_path in result.changed_files],
+        "target_version": target_version,
+        "use_pep604": use_pep604,
+    }
+    if result.diffs:
+        payload["diffs"] = {str(file_path): diff_text for file_path, diff_text in result.diffs.items()}
+    return payload
+
+
 def _serialize_string_result(
     result: ProcessStringResult,
     *,
@@ -83,19 +106,19 @@ def main() -> None:
 
 @app.command("run")
 def run(
-    path: Optional[Path] = typer.Argument(
+    paths: Optional[List[Path]] = typer.Argument(
         None,
-        exists=True,
+        exists=False,
         file_okay=True,
         dir_okay=True,
-        readable=True,
+        readable=False,
         resolve_path=True,
-        help="A Python file or a directory to scan recursively for Python files.",
+        help="One or more Python files or directories to process in order.",
     ),
     code: Optional[str] = typer.Option(
         None,
         "--code",
-        help="Python source code to transform in-memory (prints transformed code to stdout). Mutually exclusive with PATH.",
+        help="Python source code to transform in-memory (prints transformed code to stdout). Mutually exclusive with PATHS.",
     ),
     check: bool = typer.Option(
         False,
@@ -127,9 +150,9 @@ def run(
         help="Choose 'text' for human-readable output or 'json' for automation.",
     ),
 ) -> None:
-    """Rewrite `None`-related type annotations in a file or directory.
+    """Rewrite `None`-related type annotations in files and directories.
 
-    Provide either `PATH` (a Python file or directory) or `--code` (in-memory source).
+    Provide either one or more `PATHS` or `--code` (in-memory source).
     Use `--check` to preview changes and return a non-zero exit code when rewrites would occur.
     Use `--target-version 3.10` to emit PEP 604 union syntax (`T | None`).
     Use `--ignore` to skip additional files or directories by glob pattern.
@@ -144,7 +167,7 @@ def run(
         )
 
         if code is not None:
-            if path is not None:
+            if paths:
                 raise typer.BadParameter("Provide either PATH or --code, not both.")
 
             normalized_code = code.replace("\\n", "\n")
@@ -192,19 +215,14 @@ def run(
                 typer.echo(string_result.transformed_code, nl=False)
             return
 
-        if path is None:
+        if not paths:
             if output_format is OutputFormat.JSON:
                 _emit_json({"error": "either PATH or --code must be provided.", "type": "error"}, err=True)
             else:
                 typer.echo("Error: either PATH or --code must be provided.", err=True)
             raise typer.Exit(code=2)
 
-        if path.is_dir():
-            result = typewriter_runner.process_directory(path, write=not check, include_diff=check)
-        else:
-            if path.suffix != ".py":
-                raise typer.BadParameter("Only '.py' files are supported.")
-            result = typewriter_runner.process_file(path, write=not check, include_diff=check)
+        result = typewriter_runner.process_paths(paths, write=not check, include_diff=check)
     except typer.Exit:
         raise
     except ValueError as exc:
@@ -225,15 +243,26 @@ def run(
         raise typer.Exit(code=2)
 
     if output_format is OutputFormat.JSON:
-        _emit_json(
-            _serialize_process_result(
-                result,
-                path=path,
-                check=check,
-                target_version=target_version,
-                use_pep604=use_pep604,
+        if len(paths) == 1:
+            _emit_json(
+                _serialize_process_result(
+                    result,
+                    path=paths[0],
+                    check=check,
+                    target_version=target_version,
+                    use_pep604=use_pep604,
+                )
             )
-        )
+        else:
+            _emit_json(
+                _serialize_paths_result(
+                    result,
+                    paths=paths,
+                    check=check,
+                    target_version=target_version,
+                    use_pep604=use_pep604,
+                )
+            )
         if check and result.changed_count > 0:
             raise typer.Exit(code=1)
         return
