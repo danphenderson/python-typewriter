@@ -61,7 +61,7 @@ docs = [
 ]
 dev = [
     "pre-commit",
-    "black==23.10.0",
+    "black==26.3.1",
     "flake8==6.1.0",
     "isort==5.13.2",
     "autoflake==v1.4",
