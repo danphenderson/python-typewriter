@@ -504,8 +504,9 @@ def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailab
         raise typewriter.importlib_metadata.PackageNotFoundError("missing")
 
     monkeypatch.setattr(typewriter.importlib_metadata, "version", raise_missing_distribution)
+    monkeypatch.setattr(typewriter, "_read_pyproject_version", lambda: "9.9.9")
 
-    assert typewriter._resolve_version() == "1.1.0"
+    assert typewriter._resolve_version() == "9.9.9"
 
 
 def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(monkeypatch):
