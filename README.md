@@ -130,8 +130,29 @@ To also honor the nearest `.gitignore` at or above the scanned directory:
 typewriter run myproject --respect-gitignore
 ```
 
+#### Project policy
+
+Typewriter discovers the nearest ancestor `pyproject.toml` from the directory
+where it is invoked and reads an optional project policy:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+Use `--config path/to/policy.toml` to bypass discovery. CLI values take
+precedence over project values: `--target-version` replaces the configured
+target, `--respect-gitignore` or `--no-respect-gitignore` replaces the configured
+boolean, and repeatable `--ignore` values are appended after configured patterns
+with stable deduplication. Configured ignore patterns are anchored to the
+directory containing the config file, even when a narrower subdirectory or an
+explicit file is processed.
+
 #### Additional Details:
 - `PATHS` and `--code` are mutually exclusive.
+- `--config` bypasses nearest-ancestor `pyproject.toml` discovery.
 - Literal `\\n` sequences in `--code` input are interpreted as newlines.
 - When a directory is provided as `PATH`, Typewriter will ignore non-`.py` files and
 common non-source subdirectories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.

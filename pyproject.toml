@@ -35,6 +35,7 @@ classifiers = [
 dependencies = [
     "libcst==1.8.5",
     "pathspec==1.0.4",
+    "tomli>=2.0; python_version < '3.11'",
     "typer==0.24.1"
 ]
 

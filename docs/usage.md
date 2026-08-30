@@ -26,6 +26,23 @@ Inputs keep their command-line order, files found within each directory are sort
 and overlapping paths are processed once. Apply mode validates and transforms the
 entire batch before replacing files; a later failure restores any earlier replacement.
 
+## Project policy
+
+Store shared defaults under `[tool.typewriter]` in `pyproject.toml`:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+Discovery starts from the invocation directory and selects the nearest ancestor
+`pyproject.toml`; `--config` bypasses discovery. CLI target and `.gitignore`
+flags override configured values. CLI ignore patterns append after configured
+patterns, and configured ignores are always interpreted relative to the config
+file's directory.
+
 ## JSON output for automation
 
 If another tool needs structured output, use JSON:

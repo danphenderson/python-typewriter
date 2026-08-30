@@ -32,6 +32,7 @@ def f(x: T = None) -> def f(x: T | None = None)
 - Leaves `Any = None` annotations unchanged.
 - Supports check-only mode for CI and apply mode for local codemods.
 - Can respect both custom `--ignore` patterns and the nearest `.gitignore`.
+- Loads shared `[tool.typewriter]` policy from the nearest ancestor `pyproject.toml`.
 
 ## Read next
 

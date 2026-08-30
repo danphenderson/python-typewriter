@@ -7,7 +7,8 @@ import click
 import typer
 
 from typewriter.codemod import ProcessResult, ProcessStringResult
-from typewriter.runner import TypewriterRunner, _supports_pep604
+from typewriter.config import apply_cli_overrides, load_typewriter_config
+from typewriter.runner import TypewriterRunner
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
@@ -120,6 +121,16 @@ def run(
         "--code",
         help="Python source code to transform in-memory (prints transformed code to stdout). Mutually exclusive with PATHS.",
     ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        readable=False,
+        resolve_path=True,
+        help="Use this TOML file instead of discovering the nearest pyproject.toml.",
+    ),
     check: bool = typer.Option(
         False,
         "--check",
@@ -139,10 +150,10 @@ def run(
             "scanned directory. May be repeated."
         ),
     ),
-    respect_gitignore: bool = typer.Option(
-        False,
-        "--respect-gitignore",
-        help="Respect the nearest .gitignore at or above the scanned directory.",
+    respect_gitignore: Optional[bool] = typer.Option(
+        None,
+        "--respect-gitignore/--no-respect-gitignore",
+        help="Override whether the nearest .gitignore is respected.",
     ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TEXT,
@@ -157,14 +168,19 @@ def run(
     Use `--target-version 3.10` to emit PEP 604 union syntax (`T | None`).
     Use `--ignore` to skip additional files or directories by glob pattern.
     Use `--respect-gitignore` to also skip files ignored by Git.
+    Project defaults are discovered from the nearest ancestor `pyproject.toml`.
     """
     try:
-        use_pep604 = _supports_pep604(target_version)
-        typewriter_runner = TypewriterRunner(
+        loaded_config = load_typewriter_config(config_path=config)
+        effective_config = apply_cli_overrides(
+            loaded_config,
             target_version=target_version,
             ignore=ignore,
             respect_gitignore=respect_gitignore,
         )
+        typewriter_runner = TypewriterRunner.from_config(effective_config)
+        effective_target_version = effective_config.target_version
+        use_pep604 = typewriter_runner.use_pep604
 
         if code is not None:
             if paths:
@@ -178,7 +194,7 @@ def run(
                         _serialize_string_result(
                             string_result,
                             check=True,
-                            target_version=target_version,
+                            target_version=effective_target_version,
                             use_pep604=use_pep604,
                         )
                     )
@@ -207,7 +223,7 @@ def run(
                     _serialize_string_result(
                         string_result,
                         check=False,
-                        target_version=target_version,
+                        target_version=effective_target_version,
                         use_pep604=use_pep604,
                     )
                 )
@@ -249,7 +265,7 @@ def run(
                     result,
                     path=paths[0],
                     check=check,
-                    target_version=target_version,
+                    target_version=effective_target_version,
                     use_pep604=use_pep604,
                 )
             )
@@ -259,7 +275,7 @@ def run(
                     result,
                     paths=paths,
                     check=check,
-                    target_version=target_version,
+                    target_version=effective_target_version,
                     use_pep604=use_pep604,
                 )
             )

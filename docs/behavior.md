@@ -28,6 +28,25 @@ typewriter run myproject --respect-gitignore
 
 The built-in skip set stays active regardless of custom patterns.
 
+## Project policy and precedence
+
+The nearest ancestor `pyproject.toml` from the invocation directory can define:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+An explicit `--config` path bypasses ancestor discovery. Unknown keys, malformed
+values, invalid TOML, and unreadable explicit config files are errors. Target
+version and `.gitignore` behavior use CLI-over-config-over-default precedence;
+the paired `--respect-gitignore` and `--no-respect-gitignore` flags provide an
+explicit boolean override. Configured ignores come first, repeatable CLI ignores
+are appended with stable deduplication, and configured patterns remain anchored
+to the config directory rather than whichever input directory is scanned.
+
 ## Batch processing
 
 One invocation can contain multiple files and directories. Typewriter validates all

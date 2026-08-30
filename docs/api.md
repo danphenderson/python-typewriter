@@ -16,6 +16,7 @@ The most important options are:
 
 - `--check` to preview diffs and exit non-zero when rewrites are needed
 - `--code` to transform an in-memory string instead of reading from disk
+- `--config` to use an explicit TOML policy instead of ancestor discovery
 - `--target-version` to choose `Optional[...]` output or PEP 604 unions
 - `--ignore` for repeatable skip patterns
 - `--respect-gitignore` to honor the nearest `.gitignore`
@@ -28,13 +29,12 @@ For Python integrations, use `typewriter.TypewriterRunner`:
 ```python
 from pathlib import Path
 
-from typewriter import TypewriterRunner
+from typewriter import TypewriterRunner, load_typewriter_config
 
-runner = TypewriterRunner(
-    target_version="3.10",
-    ignore=["generated"],
-    respect_gitignore=True,
+config = load_typewriter_config(
+    config_path=Path("pyproject.toml"),
 )
+runner = TypewriterRunner.from_config(config)
 
 code_result = runner.process_code("value: int = None\n")
 file_result = runner.process_file(Path("example.py"), write=False, include_diff=True)
@@ -49,6 +49,12 @@ batch_result = runner.process_paths(
 `process_code` returns a structured string result with the original and transformed source.
 
 `process_file`, `process_directory`, and `process_paths` return structured results describing processed paths, changed paths, and optional unified diffs. `process_paths` preserves explicit input order, deduplicates overlaps by resolved path, and completes all reads and transformations before atomically replacing changed files.
+
+`load_typewriter_config` returns an immutable `TypewriterConfig`. Without an
+explicit path it discovers the nearest ancestor `pyproject.toml` from the
+invocation directory. The runner retains the effective config and its internal
+source provenance for integrations, while processing uses config-rooted ignore
+patterns consistently for explicit files and recursive scans.
 
 ## Lower-level codemod module
 

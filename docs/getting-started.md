@@ -64,3 +64,17 @@ typewriter run --code "var: int = None\n"
 ```
 
 `PATHS` and `--code` are mutually exclusive, and literal `\n` sequences in `--code` input are interpreted as newlines.
+
+## Add project defaults
+
+Put shared defaults in the nearest ancestor `pyproject.toml`:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated"]
+```
+
+Typewriter discovers that file from the invocation directory. Pass `--config`
+when a workflow must use a different policy file.
