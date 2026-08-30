@@ -1,5 +1,5 @@
 # Runtime dependencies
-libcst==1.1.0
+libcst==1.8.5
 pathspec==1.0.4
 typer==0.24.1
 
@@ -11,7 +11,9 @@ pytest-cov
 tomli; python_version < "3.11"
 
 # Repository-maintenance dependencies
-autoflake==1.4
+# Image-only compatibility pin: the repository's historical v1.4 hook cannot
+# build on Python 3.14, while maintenance tasks need a runnable 3.14 toolchain.
+autoflake==2.4.0
 black==23.10.0
 build
 flake8==6.1.0

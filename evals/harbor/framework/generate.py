@@ -154,7 +154,7 @@ def _validate_spec_paths(spec: EvalSpec, spec_dir: Path) -> None:
 def _load_contract() -> dict[str, Any]:
     with CONTRACT_PATH.open("rb") as contract_file:
         contract = tomllib.load(contract_file)
-    if contract.get("contract_version") != 1:
+    if contract.get("contract_version") != 2:
         raise EvalBuildError("unsupported image contract version")
     if contract.get("network") != {
         "harbor_mode": "public",

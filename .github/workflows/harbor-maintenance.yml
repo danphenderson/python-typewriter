@@ -29,7 +29,7 @@ jobs:
   controls:
     name: Determinism, image, nop, and Oracle
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -45,40 +45,43 @@ jobs:
 
       - name: Validate deterministic task generation
         run: |
-          python tools/harbor_eval.py validate python310-toml-fallback \
-            --harbor-import-check
-          python tools/harbor_eval.py generate python310-toml-fallback
+          python tools/harbor_eval.py validate-all --harbor-import-check
+          python tools/harbor_eval.py generate-all
 
       - name: Build the maintenance image
         run: |
           docker build \
             --file evals/harbor/image/Dockerfile \
-            --tag python-typewriter-harbor:maintenance-v1 \
+            --tag python-typewriter-harbor:maintenance-v2 \
             .
 
       - name: Run the no-op negative control
         run: |
-          harbor run \
-            --path build/harbor/tasks/python310-toml-fallback \
-            --agent nop \
-            --env docker \
-            --jobs-dir build/harbor/jobs \
-            --job-name nop-control \
-            --n-concurrent 1 \
-            --yes
-          python tools/harbor_eval.py assert-reward build/harbor/jobs/nop-control 0
+          while IFS= read -r slug; do
+            harbor run \
+              --path "build/harbor/tasks/${slug}" \
+              --agent nop \
+              --env docker \
+              --jobs-dir build/harbor/jobs \
+              --job-name "nop-${slug}" \
+              --n-concurrent 1 \
+              --yes
+            python tools/harbor_eval.py assert-reward "build/harbor/jobs/nop-${slug}" 0
+          done < <(python tools/harbor_eval.py list)
 
       - name: Run the Oracle positive control
         run: |
-          harbor run \
-            --path build/harbor/tasks/python310-toml-fallback \
-            --agent oracle \
-            --env docker \
-            --jobs-dir build/harbor/jobs \
-            --job-name oracle-control \
-            --n-concurrent 1 \
-            --yes
-          python tools/harbor_eval.py assert-reward build/harbor/jobs/oracle-control 1
+          while IFS= read -r slug; do
+            harbor run \
+              --path "build/harbor/tasks/${slug}" \
+              --agent oracle \
+              --env docker \
+              --jobs-dir build/harbor/jobs \
+              --job-name "oracle-${slug}" \
+              --n-concurrent 1 \
+              --yes
+            python tools/harbor_eval.py assert-reward "build/harbor/jobs/oracle-${slug}" 1
+          done < <(python tools/harbor_eval.py list)
 
       - name: Upload control evidence
         if: always()

@@ -10,10 +10,12 @@ ARG UV_VERSION=0.11.26
 ARG PYTHON_311=3.11.15
 ARG PYTHON_312=3.12.13
 ARG PYTHON_313=3.13.14
+ARG PYTHON_314=3.14.6
 
 ENV DEBIAN_FRONTEND=noninteractive \
     CARGO_HOME=/usr/local/cargo \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_FIND_LINKS=/opt/typewriter/wheelhouse \
     PRE_COMMIT_HOME=/opt/typewriter/pre-commit \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -44,17 +46,24 @@ ENV PIP_NO_INDEX=1
 
 COPY evals/harbor/image/requirements.lock /opt/typewriter/requirements.lock
 
-RUN UV_OFFLINE=0 uv python install "${PYTHON_311}" "${PYTHON_312}" "${PYTHON_313}" \
+RUN UV_OFFLINE=0 uv python install "${PYTHON_311}" "${PYTHON_312}" "${PYTHON_313}" "${PYTHON_314}" \
     && uv venv --python /usr/local/bin/python /opt/typewriter/venvs/py310 \
     && uv venv --python "${PYTHON_311}" /opt/typewriter/venvs/py311 \
     && uv venv --python "${PYTHON_312}" /opt/typewriter/venvs/py312 \
     && uv venv --python "${PYTHON_313}" /opt/typewriter/venvs/py313 \
-    && for version in 310 311 312 313; do \
-        UV_OFFLINE=0 uv pip install \
+    && uv venv --python "${PYTHON_314}" /opt/typewriter/venvs/py314 \
+    && for version in 310 311 312 313 314; do \
+        PIP_NO_INDEX=0 UV_OFFLINE=0 uv pip install \
             --python "/opt/typewriter/venvs/py${version}/bin/python" \
             --require-hashes \
             --requirement /opt/typewriter/requirements.lock; \
-    done
+    done \
+    && mkdir -p /opt/typewriter/wheelhouse \
+    && /opt/typewriter/venvs/py310/bin/python -m ensurepip --upgrade \
+    && PIP_NO_INDEX=0 /opt/typewriter/venvs/py310/bin/python -m pip download \
+        --dest /opt/typewriter/wheelhouse \
+        --require-hashes \
+        --requirement /opt/typewriter/requirements.lock
 
 COPY .pre-commit-config.yaml /tmp/typewriter-pre-commit/.pre-commit-config.yaml
 
@@ -66,7 +75,8 @@ RUN git init -q /tmp/typewriter-pre-commit \
 
 RUN /usr/sbin/useradd --create-home --uid 1000 --shell /bin/bash agent \
     && mkdir -p /workspace/typewriter /logs/agent /logs/verifier /logs/artifacts \
-    && chown -R agent:agent /workspace /logs /opt/typewriter/pre-commit
+    && chown -R agent:agent /workspace /logs /opt/typewriter/pre-commit \
+    && chmod -R a+rX /opt/typewriter/wheelhouse
 
 COPY --chmod=755 evals/harbor/image/smoke-test.sh /usr/local/bin/typewriter-image-smoke-test
 RUN typewriter-image-smoke-test

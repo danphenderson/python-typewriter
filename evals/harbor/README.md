@@ -28,22 +28,23 @@ Build the image from the repository root:
 ```bash
 docker build \
   --file evals/harbor/image/Dockerfile \
-  --tag python-typewriter-harbor:maintenance-v1 \
+  --tag python-typewriter-harbor:maintenance-v2 \
   .
 ```
 
-Generate and statically validate the seed task:
+Generate and statically validate every committed task in sorted order:
 
 ```bash
-python tools/harbor_eval.py generate python310-toml-fallback
-python tools/harbor_eval.py validate python310-toml-fallback
+python tools/harbor_eval.py list
+python tools/harbor_eval.py generate-all
+python tools/harbor_eval.py validate-all
 ```
 
 If Harbor is installed, include Harbor's native task-loading checks without
 invoking an agent or model:
 
 ```bash
-python tools/harbor_eval.py validate python310-toml-fallback \
+python tools/harbor_eval.py validate-all \
   --harbor-import-check \
   --harbor-python /path/to/harbor/python
 ```
@@ -84,7 +85,7 @@ several concerns.
 
 Normal Typewriter source changes do not rebuild the image. Rebuild it when the
 image contract, dependency lock, Python support matrix, pre-commit environment,
-or system tooling changes. Local tasks use `python-typewriter-harbor:maintenance-v1`.
+or system tooling changes. Local tasks use `python-typewriter-harbor:maintenance-v2`.
 Published tasks must override that reference with an immutable registry digest:
 
 ```bash
