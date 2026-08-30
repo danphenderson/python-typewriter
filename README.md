@@ -150,6 +150,18 @@ with stable deduplication. Configured ignore patterns are anchored to the
 directory containing the config file, even when a narrower subdirectory or an
 explicit file is processed.
 
+Inspect the resolved policy and the source of every value without scanning or
+rewriting Python files:
+
+```bash
+typewriter config
+typewriter config --config path/to/policy.toml --ignore local-only --output-format json
+```
+
+The text report is intended for contributors; JSON uses the stable top-level
+fields `type`, `config_file`, and `values` for repository automation. Both show
+whether values came from defaults, project config, or explicit CLI overrides.
+
 #### Additional Details:
 - `PATHS` and `--code` are mutually exclusive.
 - `--config` bypasses nearest-ancestor `pyproject.toml` discovery.

@@ -43,6 +43,19 @@ flags override configured values. CLI ignore patterns append after configured
 patterns, and configured ignores are always interpreted relative to the config
 file's directory.
 
+Inspect the effective policy without scanning or rewriting source files:
+
+```bash
+typewriter config
+typewriter config --config path/to/policy.toml --ignore local-only --output-format json
+```
+
+The report names the selected config file and shows the effective target,
+`.gitignore` setting, and ordered ignore patterns together with each value's
+source (`default`, `config`, or `cli`). JSON reports use the stable top-level
+fields `type`, `config_file`, and `values`. The reporting command only reads
+policy; it never discovers, parses, or writes Python source files.
+
 ## JSON output for automation
 
 If another tool needs structured output, use JSON:

@@ -7,7 +7,11 @@ import click
 import typer
 
 from typewriter.codemod import ProcessResult, ProcessStringResult
-from typewriter.config import apply_cli_overrides, load_typewriter_config
+from typewriter.config import (
+    TypewriterConfig,
+    apply_cli_overrides,
+    load_typewriter_config,
+)
 from typewriter.runner import TypewriterRunner
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
@@ -99,10 +103,106 @@ def _emit_json(payload: Dict[str, Any], *, err: bool = False) -> None:
     typer.echo(json.dumps(payload, sort_keys=True), err=err)
 
 
+def _serialize_config(config: TypewriterConfig) -> Dict[str, Any]:
+    return {
+        "type": "config",
+        "config_file": (str(config.provenance.config_path) if config.provenance.config_path is not None else None),
+        "values": {
+            "target_version": {
+                "value": config.target_version,
+                "source": config.provenance.target_version.value,
+            },
+            "respect_gitignore": {
+                "value": config.respect_gitignore,
+                "source": config.provenance.respect_gitignore.value,
+            },
+            "ignore": [{"pattern": pattern, "source": source.value} for pattern, source in zip(config.ignore, config.provenance.ignore)],
+        },
+    }
+
+
+def _emit_config_text(config: TypewriterConfig) -> None:
+    config_file = str(config.provenance.config_path) if config.provenance.config_path is not None else "(none)"
+    target_version = config.target_version if config.target_version is not None else "(none)"
+    typer.echo(f"Config file: {config_file}")
+    typer.echo(f"target_version: {target_version} ({config.provenance.target_version.value})")
+    typer.echo("respect_gitignore: " f"{str(config.respect_gitignore).lower()} ({config.provenance.respect_gitignore.value})")
+    if not config.ignore:
+        typer.echo("ignore: (none)")
+        return
+    typer.echo("ignore:")
+    for pattern, source in zip(config.ignore, config.provenance.ignore):
+        typer.echo(f"  - {pattern} ({source.value})")
+
+
 @app.callback()
 def main() -> None:
     """Typer app callback (CLI entrypoint)."""
     return
+
+
+@app.command("config")
+def config_command(
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        readable=False,
+        resolve_path=True,
+        help="Use this TOML file instead of discovering the nearest pyproject.toml.",
+    ),
+    target_version: Optional[str] = typer.Option(
+        None,
+        "--target-version",
+        help="Override the configured target Python version.",
+    ),
+    ignore: Optional[List[str]] = typer.Option(
+        None,
+        "--ignore",
+        help="Append a glob pattern to the effective ignore policy. May be repeated.",
+    ),
+    respect_gitignore: Optional[bool] = typer.Option(
+        None,
+        "--respect-gitignore/--no-respect-gitignore",
+        help="Override whether the nearest .gitignore is respected.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TEXT,
+        "--output-format",
+        help="Choose 'text' for human-readable output or 'json' for automation.",
+    ),
+) -> None:
+    """Show the effective project policy and where each value came from."""
+    try:
+        effective_config = apply_cli_overrides(
+            load_typewriter_config(config_path=config),
+            target_version=target_version,
+            ignore=ignore,
+            respect_gitignore=respect_gitignore,
+        )
+    except ValueError as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+            raise typer.Exit(code=2)
+        raise typer.BadParameter(str(exc))
+    except click.ClickException as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": exc.format_message(), "type": "error"}, err=True)
+            raise typer.Exit(code=exc.exit_code)
+        raise
+    except Exception as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+        else:
+            typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=2)
+
+    if output_format is OutputFormat.JSON:
+        _emit_json(_serialize_config(effective_config))
+        return
+    _emit_config_text(effective_config)
 
 
 @app.command("run")

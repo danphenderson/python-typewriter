@@ -22,6 +22,12 @@ The most important options are:
 - `--respect-gitignore` to honor the nearest `.gitignore`
 - `--output-format json` for automation-friendly output
 
+Use `typewriter config` with the same policy options to inspect resolved values
+and their `default`, `config`, or `cli` sources without scanning source code.
+`--output-format json` emits `type`, `config_file`, and `values` for maintenance
+automation. Policy parse and validation failures use the same exit-code `2`
+error behavior as `typewriter run`.
+
 ## Programmatic runner
 
 For Python integrations, use `typewriter.TypewriterRunner`:
