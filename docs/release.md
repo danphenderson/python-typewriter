@@ -48,11 +48,16 @@ cancelled, or failing required check.
 
 ## Gate 4: tag and GitHub release
 
-Only after Gate 3 is green, confirm the candidate equals the intended protected
-branch head and that `v1.2.0` does not already exist. Create the tag at that exact
-commit and publish a GitHub release from the reviewed 1.2.0 changelog entry. Stop
-on branch divergence, an existing or ambiguous ref, changed release notes, or a
-tag that does not resolve to the approved commit.
+Only after Gate 3 is green, confirm the candidate has landed at the exact `main`
+head and that `v1.2.0` does not already exist. Create the tag at that exact commit
+and publish a GitHub release from the reviewed 1.2.0 changelog entry. Stop on
+`main` divergence, an existing or ambiguous ref, changed release notes, or a tag
+that does not resolve to the approved commit.
+
+Before publishing the GitHub release, verify that PyPI has a trusted publisher
+for repository `danphenderson/python-typewriter`, workflow `pypi_upload.yml`, and
+environment `pypi`. The publication job must retain `id-token: write` and must
+not receive an API token, username, or password.
 
 ## Gate 5: PyPI publication
 

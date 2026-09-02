@@ -21,3 +21,18 @@ def test_changelog_keeps_1_2_0_unreleased():
 
     assert "## [1.2.0] - Unreleased" in changelog
     assert "does not indicate that a tag" in changelog
+
+
+def test_release_contract_uses_exact_main_head_and_oidc_trusted_publishing():
+    root = Path(__file__).parents[1]
+    release = (root / "docs" / "release.md").read_text(encoding="utf-8")
+    workflow = (root / ".github" / "workflows" / "pypi_upload.yml").read_text(encoding="utf-8")
+    normalized_release = " ".join(release.split())
+
+    assert "exact `main` head" in normalized_release
+    assert "protected branch head" not in normalized_release
+    assert "id-token: write" in workflow
+    assert "name: pypi" in workflow
+    assert "url: https://pypi.org/p/py-typewriter-cli" in workflow
+    assert "PYPI_TOKEN" not in workflow
+    assert "password:" not in workflow
