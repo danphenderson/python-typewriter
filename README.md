@@ -11,6 +11,10 @@
 
 Full documentation is available in the repository at [docs/index.md](docs/index.md).
 
+Version 1.2.0 is prepared in source but is not yet tagged or published. See the
+[changelog](CHANGELOG.md) and [release runbook](docs/release.md) for the distinct
+remaining gates.
+
 ## Overview
 
 Typewriter is a Python [Typer](https://typer.tiangolo.com/) CLI built on [LibCST](https://libcst.readthedocs.io/en/latest/) that normalizes `None`-related type annotations in Python source code. It can be used to automatically rewrite type annotations to use `Optional` instead of `Union` when `None` is involved, and to ensure `Optional` is used for variable and parameter annotations when the default value is `None`.
@@ -48,6 +52,56 @@ Additional notes:
 - Unused `Union` and `Optional` imports are cleaned up after rewriting.
 
 ## Quick Start
+
+### Verified 1.2.0 adoption path
+
+After 1.2.0 is published, adopt one exact package and policy through this
+sequence:
+
+```bash
+python -m pip install "py-typewriter-cli==1.2.0"
+typewriter run . --check
+```
+
+Commit shared policy, inspect it, and preview the policy-aware result before
+applying:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+```bash
+typewriter config
+typewriter run . --check
+typewriter run .
+```
+
+Pin the official hook only after the `v1.2.0` tag exists:
+
+```yaml
+repos:
+  - repo: https://github.com/danphenderson/python-typewriter
+    rev: v1.2.0
+    hooks:
+      - id: typewriter
+```
+
+Use the same policy as a CI gate:
+
+```yaml
+- name: Install Typewriter
+  run: python -m pip install "py-typewriter-cli==1.2.0"
+- name: Check Typewriter policy
+  run: typewriter run . --check
+```
+
+The [verified adoption guide](docs/adoption.md) gives the executable lifecycle,
+exit-code handling, and pre-release boundary. Maintainers can rehearse the path
+before publication with `tools/test_adoption_workflow.sh` against a local source
+tree or built wheel.
 
 ### Installation for PyPI
 ```bash
@@ -94,8 +148,14 @@ typewriter run path/to/example.py
 ### Additional features:
 To run recursively on all `*.py` files in a directory:
 ```bash
-typewriter run examples # Non-`.py` files are rejected.
+typewriter run examples # Non-`.py` files inside the directory are ignored.
 ```
+Files and directories can be combined in one ordered, deduplicated run:
+```bash
+typewriter run pyproject_hooks.py src tests
+```
+Typewriter validates and transforms every selected Python file before it writes
+anything. If a later parse or write fails, earlier replacements are not left behind.
 To transform an in-memory string and return the result to stdout, use `--code`:
 ```bash
 typewriter run --code "var: int = None\\n"
@@ -124,8 +184,41 @@ To also honor the nearest `.gitignore` at or above the scanned directory:
 typewriter run myproject --respect-gitignore
 ```
 
+#### Project policy
+
+Typewriter discovers the nearest ancestor `pyproject.toml` from the directory
+where it is invoked and reads an optional project policy:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated", "src/vendor/*"]
+```
+
+Use `--config path/to/policy.toml` to bypass discovery. CLI values take
+precedence over project values: `--target-version` replaces the configured
+target, `--respect-gitignore` or `--no-respect-gitignore` replaces the configured
+boolean, and repeatable `--ignore` values are appended after configured patterns
+with stable deduplication. Configured ignore patterns are anchored to the
+directory containing the config file, even when a narrower subdirectory or an
+explicit file is processed.
+
+Inspect the resolved policy and the source of every value without scanning or
+rewriting Python files:
+
+```bash
+typewriter config
+typewriter config --config path/to/policy.toml --ignore local-only --output-format json
+```
+
+The text report is intended for contributors; JSON uses the stable top-level
+fields `type`, `config_file`, and `values` for repository automation. Both show
+whether values came from defaults, project config, or explicit CLI overrides.
+
 #### Additional Details:
-- `PATH` and `--code` are mutually exclusive.
+- `PATHS` and `--code` are mutually exclusive.
+- `--config` bypasses nearest-ancestor `pyproject.toml` discovery.
 - Literal `\\n` sequences in `--code` input are interpreted as newlines.
 - When a directory is provided as `PATH`, Typewriter will ignore non-`.py` files and
 common non-source subdirectories such as `.git`, `.venv`, `venv`, `__pycache__`, `build`, and `dist`.
@@ -163,22 +256,24 @@ A minimal GitHub Actions step looks like this:
 
 ### Using Typewriter with pre-commit
 
-Typewriter currently accepts a single path per invocation, so the simplest pre-commit
-integration is a local hook that scans the repository root:
+The official hook accepts the Python filenames selected by pre-commit and sends
+them to one atomic Typewriter batch. Use the planned pin below only after the
+`v1.2.0` release gates are complete:
 
 ```yaml
 repos:
-  - repo: local
+  - repo: https://github.com/danphenderson/python-typewriter
+    rev: v1.2.0
     hooks:
       - id: typewriter
-        name: typewriter
-        entry: typewriter run .
-        language: system
-        pass_filenames: false
 ```
 
-That hook applies changes in place. Pair it with a CI `--check` run so contributors see
-the same normalization rules locally and in pull requests.
+The hook applies changes in place, excludes `.pyi` stubs, and uses the nearest
+`[tool.typewriter]` project policy. A failing file leaves every earlier file in
+the same invocation unchanged. The first run exits nonzero when it rewrites
+files; stage those changes and rerun until the hook is clean. Pair the hook with
+a CI `typewriter run . --check` step so contributors see the same policy locally
+and in pull requests.
 
 ### Check vs apply
 
@@ -246,6 +341,13 @@ developers can ensure that their codebase adheres to [PEP 484](https://peps.pyth
 
 ## Contributing
 Contributions to Typewriter are welcome! Please follow the fork-and-pull request workflow:
+
 1. Fork the repository and create a new branch for your feature or bug fix.
 2. Make your changes and commit them with clear messages.
 3. Push your branch to your fork and open a pull request against the `main` branch of the original repository.
+
+When a maintenance change captures a reusable engineering capability, preserve
+it as a Harbor eval after the fix has been reviewed. The
+[Typewriter Harbor maintenance guide](evals/harbor/README.md) explains how to
+turn the pre-change and fixed commits plus the new regression test into a
+deterministic no-op/Oracle-qualified task.

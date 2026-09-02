@@ -38,6 +38,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - release-build
+    environment:
+      name: pypi
+      url: https://pypi.org/p/py-typewriter-cli
 
     permissions:
       contents: read
@@ -50,18 +53,7 @@ jobs:
           name: release-dists
           path: dist/
 
-      - name: Ensure PYPI_TOKEN is set
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          if [ -z "$PYPI_TOKEN" ]; then
-            echo "Missing required secret: PYPI_TOKEN" >&2
-            exit 1
-          fi
-
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_TOKEN }}
           packages-dir: dist/

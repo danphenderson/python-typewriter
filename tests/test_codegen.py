@@ -504,8 +504,9 @@ def test_version_falls_back_to_pyproject_when_distribution_metadata_is_unavailab
         raise typewriter.importlib_metadata.PackageNotFoundError("missing")
 
     monkeypatch.setattr(typewriter.importlib_metadata, "version", raise_missing_distribution)
+    monkeypatch.setattr(typewriter, "_read_pyproject_version", lambda: "9.9.9")
 
-    assert typewriter._resolve_version() == "1.1.0"
+    assert typewriter._resolve_version() == "9.9.9"
 
 
 def test_version_falls_back_to_zero_when_metadata_and_pyproject_are_unavailable(monkeypatch):
@@ -542,6 +543,34 @@ def test_load_toml_parser_falls_back_to_tomli(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
     assert typewriter._load_toml_parser() is FakeTomli
+
+
+def test_read_pyproject_version_uses_the_runtime_toml_parser(tmp_path, monkeypatch):
+    import typewriter
+
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text('[project]\nversion = "9.9.9"\n', encoding="utf-8")
+    monkeypatch.setattr(typewriter, "_PYPROJECT_PATH", pyproject_path)
+
+    assert typewriter._load_toml_parser().__name__ in {"tomli", "tomllib"}
+    assert typewriter._read_pyproject_version() == "9.9.9"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'project = "not a table"\n',
+        '[project]\nversion = 999\n',
+    ],
+)
+def test_read_pyproject_version_rejects_malformed_project_metadata(tmp_path, monkeypatch, content):
+    import typewriter
+
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(content, encoding="utf-8")
+    monkeypatch.setattr(typewriter, "_PYPROJECT_PATH", pyproject_path)
+
+    assert typewriter._read_pyproject_version() is None
 
 
 # ---------------------------------------------------------------------------

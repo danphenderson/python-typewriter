@@ -1,0 +1,92 @@
+name: Harbor maintenance evals
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/harbor-maintenance.yml"
+      - ".pre-commit-config.yaml"
+      - "evals/harbor/**"
+      - "pyproject.toml"
+      - "tools/harbor_eval.py"
+  pull_request:
+    paths:
+      - ".github/workflows/harbor-maintenance.yml"
+      - ".pre-commit-config.yaml"
+      - "evals/harbor/**"
+      - "pyproject.toml"
+      - "tools/harbor_eval.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harbor-maintenance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    name: Determinism, image, nop, and Oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the pinned Harbor task loader
+        run: python -m pip install "harbor==0.21.0"
+
+      - name: Validate deterministic task generation
+        run: |
+          python tools/harbor_eval.py validate-all --harbor-import-check
+          python tools/harbor_eval.py generate-all
+
+      - name: Build the maintenance image
+        run: |
+          docker build \
+            --file evals/harbor/image/Dockerfile \
+            --tag python-typewriter-harbor:maintenance-v2 \
+            .
+
+      - name: Run the no-op negative control
+        run: |
+          while IFS= read -r slug; do
+            harbor run \
+              --path "build/harbor/tasks/${slug}" \
+              --agent nop \
+              --env docker \
+              --jobs-dir build/harbor/jobs \
+              --job-name "nop-${slug}" \
+              --n-concurrent 1 \
+              --yes
+            python tools/harbor_eval.py assert-reward "build/harbor/jobs/nop-${slug}" 0
+          done < <(python tools/harbor_eval.py list)
+
+      - name: Run the Oracle positive control
+        run: |
+          while IFS= read -r slug; do
+            harbor run \
+              --path "build/harbor/tasks/${slug}" \
+              --agent oracle \
+              --env docker \
+              --jobs-dir build/harbor/jobs \
+              --job-name "oracle-${slug}" \
+              --n-concurrent 1 \
+              --yes
+            python tools/harbor_eval.py assert-reward "build/harbor/jobs/oracle-${slug}" 1
+          done < <(python tools/harbor_eval.py list)
+
+      - name: Upload control evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harbor-control-evidence
+          path: build/harbor/jobs/
+          if-no-files-found: warn

@@ -7,7 +7,12 @@ import click
 import typer
 
 from typewriter.codemod import ProcessResult, ProcessStringResult
-from typewriter.runner import TypewriterRunner, _supports_pep604
+from typewriter.config import (
+    TypewriterConfig,
+    apply_cli_overrides,
+    load_typewriter_config,
+)
+from typewriter.runner import TypewriterRunner
 
 app = typer.Typer(no_args_is_help=True, help="Run python-typewriter codemods.")
 
@@ -28,6 +33,29 @@ def _serialize_process_result(
     payload: Dict[str, Any] = {
         "type": "directory" if path.is_dir() else "file",
         "path": str(path),
+        "check": check,
+        "processed_files": result.processed_files,
+        "changed_count": result.changed_count,
+        "changed_files": [str(file_path) for file_path in result.changed_files],
+        "target_version": target_version,
+        "use_pep604": use_pep604,
+    }
+    if result.diffs:
+        payload["diffs"] = {str(file_path): diff_text for file_path, diff_text in result.diffs.items()}
+    return payload
+
+
+def _serialize_paths_result(
+    result: ProcessResult,
+    *,
+    paths: List[Path],
+    check: bool,
+    target_version: Optional[str],
+    use_pep604: bool,
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "type": "paths",
+        "paths": [str(path) for path in paths],
         "check": check,
         "processed_files": result.processed_files,
         "changed_count": result.changed_count,
@@ -75,27 +103,133 @@ def _emit_json(payload: Dict[str, Any], *, err: bool = False) -> None:
     typer.echo(json.dumps(payload, sort_keys=True), err=err)
 
 
+def _serialize_config(config: TypewriterConfig) -> Dict[str, Any]:
+    return {
+        "type": "config",
+        "config_file": (str(config.provenance.config_path) if config.provenance.config_path is not None else None),
+        "values": {
+            "target_version": {
+                "value": config.target_version,
+                "source": config.provenance.target_version.value,
+            },
+            "respect_gitignore": {
+                "value": config.respect_gitignore,
+                "source": config.provenance.respect_gitignore.value,
+            },
+            "ignore": [{"pattern": pattern, "source": source.value} for pattern, source in zip(config.ignore, config.provenance.ignore)],
+        },
+    }
+
+
+def _emit_config_text(config: TypewriterConfig) -> None:
+    config_file = str(config.provenance.config_path) if config.provenance.config_path is not None else "(none)"
+    target_version = config.target_version if config.target_version is not None else "(none)"
+    typer.echo(f"Config file: {config_file}")
+    typer.echo(f"target_version: {target_version} ({config.provenance.target_version.value})")
+    typer.echo("respect_gitignore: " f"{str(config.respect_gitignore).lower()} ({config.provenance.respect_gitignore.value})")
+    if not config.ignore:
+        typer.echo("ignore: (none)")
+        return
+    typer.echo("ignore:")
+    for pattern, source in zip(config.ignore, config.provenance.ignore):
+        typer.echo(f"  - {pattern} ({source.value})")
+
+
 @app.callback()
 def main() -> None:
     """Typer app callback (CLI entrypoint)."""
     return
 
 
-@app.command("run")
-def run(
-    path: Optional[Path] = typer.Argument(
+@app.command("config")
+def config_command(
+    config: Optional[Path] = typer.Option(
         None,
-        exists=True,
+        "--config",
+        exists=False,
         file_okay=True,
         dir_okay=True,
-        readable=True,
+        readable=False,
         resolve_path=True,
-        help="A Python file or a directory to scan recursively for Python files.",
+        help="Use this TOML file instead of discovering the nearest pyproject.toml.",
+    ),
+    target_version: Optional[str] = typer.Option(
+        None,
+        "--target-version",
+        help="Override the configured target Python version.",
+    ),
+    ignore: Optional[List[str]] = typer.Option(
+        None,
+        "--ignore",
+        help="Append a glob pattern to the effective ignore policy. May be repeated.",
+    ),
+    respect_gitignore: Optional[bool] = typer.Option(
+        None,
+        "--respect-gitignore/--no-respect-gitignore",
+        help="Override whether the nearest .gitignore is respected.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.TEXT,
+        "--output-format",
+        help="Choose 'text' for human-readable output or 'json' for automation.",
+    ),
+) -> None:
+    """Show the effective project policy and where each value came from."""
+    try:
+        effective_config = apply_cli_overrides(
+            load_typewriter_config(config_path=config),
+            target_version=target_version,
+            ignore=ignore,
+            respect_gitignore=respect_gitignore,
+        )
+    except ValueError as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+            raise typer.Exit(code=2)
+        raise typer.BadParameter(str(exc))
+    except click.ClickException as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": exc.format_message(), "type": "error"}, err=True)
+            raise typer.Exit(code=exc.exit_code)
+        raise
+    except Exception as exc:
+        if output_format is OutputFormat.JSON:
+            _emit_json({"error": str(exc), "type": "error"}, err=True)
+        else:
+            typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=2)
+
+    if output_format is OutputFormat.JSON:
+        _emit_json(_serialize_config(effective_config))
+        return
+    _emit_config_text(effective_config)
+
+
+@app.command("run")
+def run(
+    paths: Optional[List[Path]] = typer.Argument(
+        None,
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        readable=False,
+        resolve_path=True,
+        help="One or more Python files or directories to process in order.",
     ),
     code: Optional[str] = typer.Option(
         None,
         "--code",
-        help="Python source code to transform in-memory (prints transformed code to stdout). Mutually exclusive with PATH.",
+        help="Python source code to transform in-memory (prints transformed code to stdout). Mutually exclusive with PATHS.",
+    ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        exists=False,
+        file_okay=True,
+        dir_okay=True,
+        readable=False,
+        resolve_path=True,
+        help="Use this TOML file instead of discovering the nearest pyproject.toml.",
     ),
     check: bool = typer.Option(
         False,
@@ -116,10 +250,10 @@ def run(
             "scanned directory. May be repeated."
         ),
     ),
-    respect_gitignore: bool = typer.Option(
-        False,
-        "--respect-gitignore",
-        help="Respect the nearest .gitignore at or above the scanned directory.",
+    respect_gitignore: Optional[bool] = typer.Option(
+        None,
+        "--respect-gitignore/--no-respect-gitignore",
+        help="Override whether the nearest .gitignore is respected.",
     ),
     output_format: OutputFormat = typer.Option(
         OutputFormat.TEXT,
@@ -127,24 +261,29 @@ def run(
         help="Choose 'text' for human-readable output or 'json' for automation.",
     ),
 ) -> None:
-    """Rewrite `None`-related type annotations in a file or directory.
+    """Rewrite `None`-related type annotations in files and directories.
 
-    Provide either `PATH` (a Python file or directory) or `--code` (in-memory source).
+    Provide either one or more `PATHS` or `--code` (in-memory source).
     Use `--check` to preview changes and return a non-zero exit code when rewrites would occur.
     Use `--target-version 3.10` to emit PEP 604 union syntax (`T | None`).
     Use `--ignore` to skip additional files or directories by glob pattern.
     Use `--respect-gitignore` to also skip files ignored by Git.
+    Project defaults are discovered from the nearest ancestor `pyproject.toml`.
     """
     try:
-        use_pep604 = _supports_pep604(target_version)
-        typewriter_runner = TypewriterRunner(
+        loaded_config = load_typewriter_config(config_path=config)
+        effective_config = apply_cli_overrides(
+            loaded_config,
             target_version=target_version,
             ignore=ignore,
             respect_gitignore=respect_gitignore,
         )
+        typewriter_runner = TypewriterRunner.from_config(effective_config)
+        effective_target_version = effective_config.target_version
+        use_pep604 = typewriter_runner.use_pep604
 
         if code is not None:
-            if path is not None:
+            if paths:
                 raise typer.BadParameter("Provide either PATH or --code, not both.")
 
             normalized_code = code.replace("\\n", "\n")
@@ -155,7 +294,7 @@ def run(
                         _serialize_string_result(
                             string_result,
                             check=True,
-                            target_version=target_version,
+                            target_version=effective_target_version,
                             use_pep604=use_pep604,
                         )
                     )
@@ -184,7 +323,7 @@ def run(
                     _serialize_string_result(
                         string_result,
                         check=False,
-                        target_version=target_version,
+                        target_version=effective_target_version,
                         use_pep604=use_pep604,
                     )
                 )
@@ -192,19 +331,14 @@ def run(
                 typer.echo(string_result.transformed_code, nl=False)
             return
 
-        if path is None:
+        if not paths:
             if output_format is OutputFormat.JSON:
                 _emit_json({"error": "either PATH or --code must be provided.", "type": "error"}, err=True)
             else:
                 typer.echo("Error: either PATH or --code must be provided.", err=True)
             raise typer.Exit(code=2)
 
-        if path.is_dir():
-            result = typewriter_runner.process_directory(path, write=not check, include_diff=check)
-        else:
-            if path.suffix != ".py":
-                raise typer.BadParameter("Only '.py' files are supported.")
-            result = typewriter_runner.process_file(path, write=not check, include_diff=check)
+        result = typewriter_runner.process_paths(paths, write=not check, include_diff=check)
     except typer.Exit:
         raise
     except ValueError as exc:
@@ -225,15 +359,26 @@ def run(
         raise typer.Exit(code=2)
 
     if output_format is OutputFormat.JSON:
-        _emit_json(
-            _serialize_process_result(
-                result,
-                path=path,
-                check=check,
-                target_version=target_version,
-                use_pep604=use_pep604,
+        if len(paths) == 1:
+            _emit_json(
+                _serialize_process_result(
+                    result,
+                    path=paths[0],
+                    check=check,
+                    target_version=effective_target_version,
+                    use_pep604=use_pep604,
+                )
             )
-        )
+        else:
+            _emit_json(
+                _serialize_paths_result(
+                    result,
+                    paths=paths,
+                    check=check,
+                    target_version=effective_target_version,
+                    use_pep604=use_pep604,
+                )
+            )
         if check and result.changed_count > 0:
             raise typer.Exit(code=1)
         return

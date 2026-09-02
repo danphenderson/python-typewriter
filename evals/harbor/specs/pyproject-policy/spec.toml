@@ -1,0 +1,37 @@
+schema_version = 1
+slug = "pyproject-policy"
+
+task_name = "danphenderson/python-typewriter-pyproject-policy"
+task_version = "1.0.0"
+description = "Load immutable Typewriter project policy from pyproject.toml with explicit CLI precedence."
+
+base_ref = "6f4d13ee3bd25a0da3255f12aece58ef35d7fe08"
+solution_ref = "6fcbbe3ac3d1fcc960b48a009b41d3670a637ab0"
+solution_paths = [
+    "typewriter/config.py",
+    "typewriter/runner.py",
+    "typewriter/codemod.py",
+    "typewriter/cli.py",
+    "typewriter/__init__.py",
+    "pyproject.toml",
+    "README.md",
+    "docs/api.md",
+    "docs/behavior.md",
+    "docs/getting-started.md",
+    "docs/index.md",
+    "docs/usage.md",
+]
+hidden_test_files = ["hidden_tests/test_pyproject_policy.py"]
+
+keywords = ["python", "repository-maintenance", "configuration", "pyproject", "cli"]
+difficulty = "hard"
+category = "software-engineering"
+
+agent_timeout_sec = 900.0
+verifier_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+author_name = "Daniel Henderson"
+author_email = "me@danhenderson.dev"

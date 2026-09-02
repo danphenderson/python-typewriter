@@ -1,0 +1,8 @@
+- id: typewriter
+  name: typewriter
+  description: Rewrite None-related type annotations with python-typewriter.
+  entry: typewriter run
+  language: python
+  types: [python]
+  exclude: '\.pyi$'
+  require_serial: true

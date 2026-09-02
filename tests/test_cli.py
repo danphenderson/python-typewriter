@@ -1,10 +1,13 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import click
+import pytest
 from typer.testing import CliRunner
 
+import typewriter.config as config_module
 from typewriter import cli as cli_module
 from typewriter.cli import app
 
@@ -377,6 +380,648 @@ def test_run_json_error_is_emitted_for_click_exceptions(monkeypatch):
     assert result.exit_code == 1
     payload = json.loads(result.stderr)
     assert payload == {"error": "boom", "type": "error"}
+
+
+def test_run_multiple_paths_json_check_preserves_order_and_deduplicates(tmp_path):
+    first = tmp_path / "b.py"
+    first.write_text("b: int = None\n", encoding="utf-8")
+    second = tmp_path / "a.py"
+    second.write_text("a: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["run", str(first), str(tmp_path), "--check", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 1
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["type"] == "paths"
+    assert payload["paths"] == [str(first), str(tmp_path)]
+    assert payload["processed_files"] == 2
+    assert payload["changed_count"] == 2
+    assert payload["changed_files"] == [str(first), str(second)]
+    assert set(payload["diffs"]) == {str(first), str(second)}
+    assert first.read_text(encoding="utf-8") == "b: int = None\n"
+    assert second.read_text(encoding="utf-8") == "a: int = None\n"
+
+
+def test_run_multiple_paths_apply_is_atomic_when_later_file_is_malformed(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    malformed = tmp_path / "b.py"
+    malformed.write_text("def broken(:\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(first), str(malformed), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert json.loads(result.stderr)["type"] == "error"
+    assert first.read_bytes() == original
+
+
+def test_run_invalid_later_path_does_not_modify_an_earlier_file(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    unsupported = tmp_path / "notes.txt"
+    unsupported.write_text("not Python\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(first), str(unsupported)])
+
+    assert result.exit_code == 2
+    assert "Only '.py' files are supported" in result.output
+    assert first.read_bytes() == original
+
+
+def test_run_missing_later_path_emits_one_json_error_without_writing(tmp_path):
+    first = tmp_path / "a.py"
+    original = b"a: int = None\n"
+    first.write_bytes(original)
+    missing = tmp_path / "missing.py"
+
+    result = runner.invoke(app, ["run", str(first), str(missing), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "does not exist" in payload["error"]
+    assert first.read_bytes() == original
+
+
+def test_run_code_rejects_multiple_paths(tmp_path):
+    first = tmp_path / "a.py"
+    first.write_text("a: int = None\n", encoding="utf-8")
+    second = tmp_path / "b.py"
+    second.write_text("b: int = None\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["run", str(first), str(second), "--code", "value: int = None\n", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Provide either PATH" in payload["error"]
+
+
+def test_run_single_path_json_schema_remains_singular(tmp_path):
+    file_path = tmp_path / "example.py"
+    file_path.write_text("value: Optional[int] = None\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["run", str(file_path), "--check", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["type"] == "file"
+    assert payload["path"] == str(file_path)
+    assert "paths" not in payload
+    assert "config" not in payload
+    assert "config_file" not in payload
+    assert "provenance" not in payload
+    assert "values" not in payload
+
+
+def test_config_json_reports_default_values_and_sources(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["config", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {
+        "type": "config",
+        "config_file": None,
+        "values": {
+            "target_version": {"value": None, "source": "default"},
+            "respect_gitignore": {"value": False, "source": "default"},
+            "ignore": [],
+        },
+    }
+
+
+def test_config_text_reports_empty_default_policy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["config"])
+
+    assert result.exit_code == 0
+    assert result.stdout == (
+        "Config file: (none)\n" "target_version: (none) (default)\n" "respect_gitignore: false (default)\n" "ignore: (none)\n"
+    )
+
+
+def test_config_text_and_json_have_value_source_parity(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    config_path = project / "pyproject.toml"
+    config_path.write_text(
+        '[tool.typewriter]\ntarget-version = "3.9"\nrespect-gitignore = true\n' 'ignore = ["generated", "shared"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(project)
+    options = [
+        "--target-version",
+        "3.10",
+        "--no-respect-gitignore",
+        "--ignore",
+        "shared",
+        "--ignore",
+        "cli-only",
+    ]
+
+    text_result = runner.invoke(app, ["config", *options])
+    json_result = runner.invoke(app, ["config", *options, "--output-format", "json"])
+
+    assert text_result.exit_code == json_result.exit_code == 0
+    assert text_result.stdout == (
+        f"Config file: {config_path.resolve()}\n"
+        "target_version: 3.10 (cli)\n"
+        "respect_gitignore: false (cli)\n"
+        "ignore:\n"
+        "  - generated (config)\n"
+        "  - shared (config)\n"
+        "  - cli-only (cli)\n"
+    )
+    assert json.loads(json_result.stdout) == {
+        "type": "config",
+        "config_file": str(config_path.resolve()),
+        "values": {
+            "target_version": {"value": "3.10", "source": "cli"},
+            "respect_gitignore": {"value": False, "source": "cli"},
+            "ignore": [
+                {"pattern": "generated", "source": "config"},
+                {"pattern": "shared", "source": "config"},
+                {"pattern": "cli-only", "source": "cli"},
+            ],
+        },
+    }
+
+
+def test_config_reports_config_sources_and_explicit_file(tmp_path, monkeypatch):
+    discovered = tmp_path / "pyproject.toml"
+    discovered.write_text('[tool.typewriter]\ntarget-version = "3.9"\n', encoding="utf-8")
+    explicit = tmp_path / "policy.toml"
+    explicit.write_text(
+        '[tool.typewriter]\ntarget-version = "3.10"\nrespect-gitignore = true\nignore = ["vendor"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["config", "--config", str(explicit), "--output-format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "type": "config",
+        "config_file": str(explicit.resolve()),
+        "values": {
+            "target_version": {"value": "3.10", "source": "config"},
+            "respect_gitignore": {"value": True, "source": "config"},
+            "ignore": [{"pattern": "vendor", "source": "config"}],
+        },
+    }
+
+
+def test_config_positive_gitignore_flag_reports_cli_source(tmp_path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.typewriter]\nrespect-gitignore = false\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["config", "--respect-gitignore", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 0
+    value = json.loads(result.stdout)["values"]["respect_gitignore"]
+    assert value == {"value": True, "source": "cli"}
+
+
+def test_config_does_not_construct_a_runner_or_write_sources(tmp_path, monkeypatch):
+    source = tmp_path / "example.py"
+    original = b"value: int = None\n"
+    source.write_bytes(original)
+    monkeypatch.chdir(tmp_path)
+
+    def fail_if_constructed(*args, **kwargs):
+        raise AssertionError("config reporting must not construct a runner")
+
+    monkeypatch.setattr(cli_module.TypewriterRunner, "from_config", fail_if_constructed)
+
+    result = runner.invoke(app, ["config", "--output-format", "json"])
+
+    assert result.exit_code == 0
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("[tool.typewriter\n", "Could not parse config file"),
+        ("[tool.typewriter]\nunknown = true\n", "Unknown tool.typewriter config key"),
+        ('[tool.typewriter]\ntarget-version = 310\n', "target-version must be a string"),
+    ],
+)
+def test_config_errors_are_structured_json(tmp_path, content, message):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text(content, encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["config", "--config", str(config_path), "--output-format", "json"],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert message in payload["error"]
+
+
+def test_config_missing_explicit_file_is_a_structured_json_error(tmp_path):
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "--config",
+            str(tmp_path / "missing.toml"),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "not a readable file" in payload["error"]
+
+
+def test_config_value_error_uses_text_cli_diagnostics(tmp_path):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text("[tool.typewriter]\nunknown = true\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["config", "--config", str(config_path)])
+
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert "Unknown tool.typewriter config key" in result.output
+
+
+@pytest.mark.parametrize("output_format", ["text", "json"])
+def test_config_preserves_click_exception_semantics(monkeypatch, output_format):
+    def raise_click_exception(*args, **kwargs):
+        raise click.ClickException("injected click failure")
+
+    monkeypatch.setattr(cli_module, "load_typewriter_config", raise_click_exception)
+
+    result = runner.invoke(app, ["config", "--output-format", output_format])
+
+    assert result.exit_code == 1
+    if output_format == "json":
+        assert json.loads(result.stderr) == {"error": "injected click failure", "type": "error"}
+    else:
+        assert "injected click failure" in result.output
+
+
+@pytest.mark.parametrize("output_format", ["text", "json"])
+def test_config_converts_unexpected_failures_to_code_two(monkeypatch, output_format):
+    def raise_runtime_error(*args, **kwargs):
+        raise RuntimeError("injected runtime failure")
+
+    monkeypatch.setattr(cli_module, "load_typewriter_config", raise_runtime_error)
+
+    result = runner.invoke(app, ["config", "--output-format", output_format])
+
+    assert result.exit_code == 2
+    if output_format == "json":
+        assert json.loads(result.stderr) == {"error": "injected runtime failure", "type": "error"}
+    else:
+        assert "Error: injected runtime failure" in result.output
+
+
+def test_run_discovers_project_config_from_invocation_cwd(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        '[tool.typewriter]\ntarget-version = "3.10"\n',
+        encoding="utf-8",
+    )
+    invocation_cwd = project / "src" / "package"
+    invocation_cwd.mkdir(parents=True)
+    monkeypatch.chdir(invocation_cwd)
+
+    result = runner.invoke(
+        app,
+        ["run", "--code", "value: int = None\n", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["target_version"] == "3.10"
+    assert payload["use_pep604"] is True
+    assert "int | None" in payload["transformed_code"]
+
+
+def test_run_explicit_config_bypasses_discovery_and_cli_target_wins(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        '[tool.typewriter]\ntarget-version = "3.9"\n',
+        encoding="utf-8",
+    )
+    explicit = tmp_path / "policy.toml"
+    explicit.write_text(
+        '[tool.typewriter]\ntarget-version = "3.10"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(project)
+
+    explicit_result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(explicit),
+            "--output-format",
+            "json",
+        ],
+    )
+    overridden_result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(explicit),
+            "--target-version",
+            "3.9",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert explicit_result.exit_code == overridden_result.exit_code == 0
+    explicit_payload = json.loads(explicit_result.stdout)
+    overridden_payload = json.loads(overridden_result.stdout)
+    assert explicit_payload["target_version"] == "3.10"
+    assert "int | None" in explicit_payload["transformed_code"]
+    assert overridden_payload["target_version"] == "3.9"
+    assert "Optional[int]" in overridden_payload["transformed_code"]
+
+
+def test_run_gitignore_cli_tristate_overrides_project_config(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        "[tool.typewriter]\nrespect-gitignore = true\n",
+        encoding="utf-8",
+    )
+    ignored = project / "ignored.py"
+    ignored.write_text("value: int = None\n", encoding="utf-8")
+    (project / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+    monkeypatch.chdir(project)
+
+    inherited = runner.invoke(app, ["run", str(project), "--check", "--output-format", "json"])
+    disabled = runner.invoke(
+        app,
+        ["run", str(project), "--check", "--no-respect-gitignore", "--output-format", "json"],
+    )
+
+    assert inherited.exit_code == 0
+    assert json.loads(inherited.stdout)["processed_files"] == 0
+    assert disabled.exit_code == 1
+    assert json.loads(disabled.stdout)["changed_files"] == [str(ignored)]
+
+
+def test_run_gitignore_true_flag_overrides_configured_false(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        "[tool.typewriter]\nrespect-gitignore = false\n",
+        encoding="utf-8",
+    )
+    ignored = project / "ignored.py"
+    ignored.write_text("value: int = None\n", encoding="utf-8")
+    (project / ".gitignore").write_text("ignored.py\n", encoding="utf-8")
+    monkeypatch.chdir(project)
+
+    inherited = runner.invoke(app, ["run", str(project), "--check", "--output-format", "json"])
+    enabled = runner.invoke(
+        app,
+        ["run", str(project), "--check", "--respect-gitignore", "--output-format", "json"],
+    )
+
+    assert inherited.exit_code == 1
+    assert json.loads(inherited.stdout)["changed_files"] == [str(ignored)]
+    assert enabled.exit_code == 0
+    assert json.loads(enabled.stdout)["processed_files"] == 0
+
+
+def test_run_merges_config_and_cli_ignores_with_config_root_anchoring(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        '[tool.typewriter]\nignore = ["src/generated/*", "shared.py"]\n',
+        encoding="utf-8",
+    )
+    kept = project / "src" / "kept.py"
+    kept.parent.mkdir()
+    kept.write_text("kept: int = None\n", encoding="utf-8")
+    config_ignored = project / "src" / "generated" / "ignored.py"
+    config_ignored.parent.mkdir()
+    config_ignored.write_text("ignored: int = None\n", encoding="utf-8")
+    shared = project / "src" / "shared.py"
+    shared.write_text("shared: int = None\n", encoding="utf-8")
+    cli_ignored = project / "src" / "cli.py"
+    cli_ignored.write_text("cli: int = None\n", encoding="utf-8")
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            str(project / "src"),
+            "--check",
+            "--ignore",
+            "src/generated/*",
+            "--ignore",
+            "cli.py",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["processed_files"] == 1
+    assert payload["changed_files"] == [str(kept)]
+
+
+def test_run_config_errors_are_structured_json(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        "[tool.typewriter]\nunknown = true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(
+        app,
+        ["run", "--code", "value: int = None\n", "--output-format", "json"],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "Unknown tool.typewriter config key" in payload["error"]
+
+
+def test_run_config_error_occurs_before_source_writes(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        "[tool.typewriter]\nunknown = true\n",
+        encoding="utf-8",
+    )
+    source = project / "example.py"
+    original = b"value: int = None\n"
+    source.write_bytes(original)
+    monkeypatch.chdir(project)
+
+    result = runner.invoke(app, ["run", str(source), "--output-format", "json"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert json.loads(result.stderr)["type"] == "error"
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("[tool.typewriter\n", "Could not parse config file"),
+        ('[tool.typewriter]\ntarget-version = 310\n', "target-version must be a string"),
+        ('[tool.typewriter]\ntarget-version = "abc"\n', "Invalid target version"),
+        ('[tool.typewriter]\nrespect-gitignore = "yes"\n', "respect-gitignore must be a boolean"),
+        ('[tool.typewriter]\nignore = "generated"\n', "ignore must be an array"),
+    ],
+)
+def test_run_malformed_config_is_a_structured_json_error(tmp_path, content, message):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text(content, encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(config_path),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert message in payload["error"]
+
+
+def test_run_explicit_missing_config_is_a_structured_json_error(tmp_path):
+    missing = tmp_path / "missing.toml"
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(missing),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "not a readable file" in payload["error"]
+
+
+def test_run_explicit_config_directory_is_a_structured_json_error(tmp_path):
+    config_directory = tmp_path / "policy"
+    config_directory.mkdir()
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(config_directory),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "not a readable file" in payload["error"]
+
+
+def test_run_explicit_unreadable_config_is_a_structured_json_error(tmp_path, monkeypatch):
+    config_path = tmp_path / "policy.toml"
+    config_path.write_text('[tool.typewriter]\ntarget-version = "3.10"\n', encoding="utf-8")
+    real_access = config_module.os.access
+
+    def reject_config(path, mode):
+        if Path(path) == config_path.resolve():
+            return False
+        return real_access(path, mode)
+
+    monkeypatch.setattr(config_module.os, "access", reject_config)
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "--code",
+            "value: int = None\n",
+            "--config",
+            str(config_path),
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    payload = json.loads(result.stderr)
+    assert payload["type"] == "error"
+    assert "not a readable file" in payload["error"]
 
 
 def test_run_text_error_is_emitted_for_click_exceptions(monkeypatch):

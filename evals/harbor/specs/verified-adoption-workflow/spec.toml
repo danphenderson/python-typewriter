@@ -1,0 +1,36 @@
+schema_version = 1
+slug = "verified-adoption-workflow"
+
+task_name = "danphenderson/python-typewriter-verified-adoption-workflow"
+task_version = "1.0.0"
+description = "Prepare a release-gated 1.2.0 project-policy adoption workflow and independently verify it offline."
+
+base_ref = "0480104b4e80f623f0670207c5223ba78754caf0"
+solution_ref = "502e66e8fbb3e72b6abbbbaef67e3151e54f487a"
+solution_paths = [
+    ".github/workflows/adoption-workflow.yml",
+    "CHANGELOG.md",
+    "README.md",
+    "docs/adoption.md",
+    "docs/getting-started.md",
+    "docs/index.md",
+    "docs/release.md",
+    "docs/usage.md",
+    "mkdocs.yml",
+    "pyproject.toml",
+    "tools/test_adoption_workflow.sh",
+]
+hidden_test_files = ["hidden_tests/test_verified_adoption_workflow.py"]
+
+keywords = ["python", "repository-maintenance", "adoption", "release", "pre-commit", "ci"]
+difficulty = "hard"
+category = "software-engineering"
+
+agent_timeout_sec = 900.0
+verifier_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+author_name = "Daniel Henderson"
+author_email = "me@danhenderson.dev"

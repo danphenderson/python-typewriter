@@ -4,7 +4,7 @@ import warnings
 from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from libcst import (
     AnnAssign,
@@ -364,6 +364,7 @@ def _iter_python_files(
     extra_ignore_patterns: Optional[Sequence[str]] = None,
     *,
     respect_gitignore: bool = False,
+    path_is_ignored: Optional[Callable[[Path], bool]] = None,
 ) -> Sequence[Path]:
     """Walk *directory_path* and yield all ``*.py`` files.
 
@@ -378,6 +379,8 @@ def _iter_python_files(
     platforms.
     When *respect_gitignore* is true, the nearest ``.gitignore`` at or above the
     scanned directory is also applied.
+    When *path_is_ignored* is provided, it is evaluated before descending into a
+    directory or selecting a Python file so callers can supply anchored policy.
     """
     ignore_patterns: Sequence[str] = list(extra_ignore_patterns) if extra_ignore_patterns else []
     gitignore = _load_gitignore_spec(directory_path) if respect_gitignore else None
@@ -386,6 +389,8 @@ def _iter_python_files(
         filtered_dirs: List[str] = []
         for directory_name in sorted(dirs):
             directory_candidate = Path(root) / directory_name
+            if path_is_ignored is not None and path_is_ignored(directory_candidate):
+                continue
             if directory_name in SKIP_DIRECTORY_NAMES:
                 continue
             if _is_gitignored(
@@ -404,6 +409,8 @@ def _iter_python_files(
         for file_name in sorted(files):
             file_path = Path(root) / file_name
             if not file_name.endswith(".py"):
+                continue
+            if path_is_ignored is not None and path_is_ignored(file_path):
                 continue
             if _is_gitignored(
                 file_path,

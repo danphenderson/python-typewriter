@@ -1,0 +1,29 @@
+schema_version = 1
+slug = "effective-policy-reporting"
+
+task_name = "danphenderson/python-typewriter-effective-policy-reporting"
+task_version = "1.0.0"
+description = "Explain the effective Typewriter project policy and the source of every value without touching source code."
+
+base_ref = "fb72b06aea289c0b40fa57ff14e503fa09f10df6"
+solution_ref = "fd0c82c37df73ca659a4f3492123ed29bfca8e45"
+solution_paths = [
+    "typewriter/cli.py",
+    "README.md",
+    "docs/api.md",
+    "docs/usage.md",
+]
+hidden_test_files = ["hidden_tests/test_effective_policy_reporting.py"]
+
+keywords = ["python", "repository-maintenance", "configuration", "provenance", "cli"]
+difficulty = "medium"
+category = "software-engineering"
+
+agent_timeout_sec = 900.0
+verifier_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+author_name = "Daniel Henderson"
+author_email = "me@danhenderson.dev"

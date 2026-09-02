@@ -6,7 +6,7 @@
 pip install py-typewriter-cli
 ```
 
-Typewriter supports Python 3.10 through 3.13.
+Typewriter supports Python 3.10 through 3.14.
 
 ## First run
 
@@ -51,10 +51,34 @@ Run recursively on Python files in a directory:
 typewriter run examples
 ```
 
+Process an ordered mix of files and directories as one atomic batch:
+
+```bash
+typewriter run src tests/test_cli.py
+```
+
 Transform an in-memory string instead of a file:
 
 ```bash
 typewriter run --code "var: int = None\n"
 ```
 
-`PATH` and `--code` are mutually exclusive, and literal `\n` sequences in `--code` input are interpreted as newlines.
+`PATHS` and `--code` are mutually exclusive, and literal `\n` sequences in `--code` input are interpreted as newlines.
+
+## Add project defaults
+
+Put shared defaults in the nearest ancestor `pyproject.toml`:
+
+```toml
+[tool.typewriter]
+target-version = "3.10"
+respect-gitignore = true
+ignore = ["generated"]
+```
+
+Typewriter discovers that file from the invocation directory. Pass `--config`
+when a workflow must use a different policy file.
+
+For the complete install, preview, policy, apply, official-hook, and CI sequence,
+continue to the [verified adoption workflow](adoption.md). Version 1.2.0 remains
+unreleased until every gate in the [release runbook](release.md) is complete.

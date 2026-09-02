@@ -4,6 +4,7 @@ import importlib.metadata as importlib_metadata
 from pathlib import Path
 from typing import Any
 
+from typewriter.config import TypewriterConfig, load_typewriter_config
 from typewriter.runner import TypewriterRunner
 
 _DISTRIBUTION_NAME = "py-typewriter-cli"
@@ -49,4 +50,4 @@ def _resolve_version() -> str:
 
 __version__ = _resolve_version()
 
-__all__ = ["TypewriterRunner", "__version__"]
+__all__ = ["TypewriterConfig", "TypewriterRunner", "__version__", "load_typewriter_config"]
